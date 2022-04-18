@@ -10,7 +10,7 @@
 
   <arg name="base_frame" default="base_link"/>
   <arg name="gnss_base_frame" default="gnss_base_link"/>
-  <arg name="gnss_frame" default="gnss"/>
+  <arg name="gnss_frame" default="ins_corrected"/>
   <arg name="map_frame" default="map"/>
 
   <arg name="coordinate_system" default="1" description="0:UTM, 1:MGRS, 2:PLANE, 3:LocalCartesian"/>
@@ -32,6 +32,7 @@
     <param name="map_frame" value="$(var map_frame)"/>
 
     <param name="coordinate_system" value="$(var coordinate_system)"/>
+    <param name="utm_projector_type" value="$(var utm_projector_type)"/>
     <param name="buff_epoch" value="$(var buff_epoch)"/>
     <param name="use_ublox_receiver" value="$(var use_ublox_receiver)"/>
     <param name="plane_zone" value="$(var plane_zone)"/>

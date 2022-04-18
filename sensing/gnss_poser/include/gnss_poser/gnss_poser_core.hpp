@@ -85,6 +85,7 @@ private:
   rclcpp::Publisher<tier4_debug_msgs::msg::BoolStamped>::SharedPtr fixed_pub_;
 
   CoordinateSystem coordinate_system_;
+  UtmProjectorType utm_projector_type;
   std::string base_frame_;
   std::string gnss_frame_;
   std::string gnss_base_frame_;
