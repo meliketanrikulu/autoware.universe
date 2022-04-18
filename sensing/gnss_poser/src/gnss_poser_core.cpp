@@ -170,13 +170,15 @@ GNSSStat GNSSPoser::convert(
   GNSSStat gnss_stat;
   if (coordinate_system == CoordinateSystem::UTM) {
     gnss_stat =
-      NavSatFix2UTM(nav_sat_fix_msg, utm_projector_type, nav_sat_fix_origin, this->get_logger());
+      NavSatFix2UTM(nav_sat_fix_msg, this->get_logger());
   } else if (coordinate_system == CoordinateSystem::MGRS) {
     gnss_stat = NavSatFix2MGRS(
-      nav_sat_fix_msg, utm_projector_type, nav_sat_fix_origin, MGRSPrecision::_100MICRO_METER,
+      nav_sat_fix_msg, MGRSPrecision::_100MICRO_METER,
       this->get_logger());
   } else if (coordinate_system == CoordinateSystem::PLANE) {
     gnss_stat = NavSatFix2PLANE(nav_sat_fix_msg, plane_zone_, this->get_logger());
+  } else if(coordinate_system == CoordinateSystem::LOCAL_CARTESIAN) {
+    gnss_stat = NavSatFix2LocalCartesian(nav_sat_fix_msg, nav_sat_fix_origin, this->get_logger());
   } else {
     RCLCPP_ERROR_STREAM_THROTTLE(
       this->get_logger(), *this->get_clock(), std::chrono::milliseconds(1000).count(),

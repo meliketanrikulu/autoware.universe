@@ -20,11 +20,7 @@ enum class CoordinateSystem {
   UTM = 0,
   MGRS = 1,
   PLANE = 2,
-};
-
-enum class UtmProjectorType {
-  UTMUPS = 0,
-  LocalCartesian = 1,
+  LOCAL_CARTESIAN = 3,
 };
 
 struct GNSSStat
