@@ -22,7 +22,7 @@ enum class CoordinateSystem {
   PLANE = 2,
 };
 
-enum class UtmProjectorType{
+enum class UtmProjectorType {
   UTMUPS = 0,
   LocalCartesian = 1,
 };

@@ -17,6 +17,7 @@
 #include "gnss_poser/gnss_stat.hpp"
 
 #include <GeographicLib/Geoid.hpp>
+#include <GeographicLib/LocalCartesian.hpp>
 #include <GeographicLib/MGRS.hpp>
 #include <GeographicLib/UTMUPS.hpp>
 #include <geo_pos_conv/geo_pos_conv.hpp>
@@ -25,7 +26,6 @@
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 
 #include <string>
-#include <GeographicLib/LocalCartesian.hpp>
 namespace gnss_poser
 {
 enum class MGRSPrecision {
@@ -58,7 +58,8 @@ double EllipsoidHeight2OrthometricHeight(
 }
 
 GNSSStat NavSatFix2UTM(
-  const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg, UtmProjectorType utm_projector_type,sensor_msgs::msg::NavSatFix nav_sat_fix_origin, const rclcpp::Logger & logger)
+  const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg, UtmProjectorType utm_projector_type,
+  sensor_msgs::msg::NavSatFix nav_sat_fix_origin, const rclcpp::Logger & logger)
 {
   GNSSStat utm;
   utm.coordinate_system = CoordinateSystem::UTM;
@@ -79,8 +80,8 @@ GNSSStat NavSatFix2UTM(
     utm.longitude = nav_sat_fix_msg.longitude;
     utm.altitude = nav_sat_fix_msg.altitude;
   } catch (const GeographicLib::GeographicErr & err) {
-      RCLCPP_ERROR_STREAM(logger, "Failed to convert from LLH to UTM" << err.what());
-    }
+    RCLCPP_ERROR_STREAM(logger, "Failed to convert from LLH to UTM" << err.what());
+  }
   return utm;
 }
 
@@ -113,10 +114,11 @@ GNSSStat UTM2MGRS(
 }
 
 GNSSStat NavSatFix2MGRS(
-  const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg, UtmProjectorType & utm_projector_type, sensor_msgs::msg::NavSatFix & nav_sat_fix_origin, const MGRSPrecision & precision,
+  const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg, UtmProjectorType & utm_projector_type,
+  sensor_msgs::msg::NavSatFix & nav_sat_fix_origin, const MGRSPrecision & precision,
   const rclcpp::Logger & logger)
 {
-  const auto utm = NavSatFix2UTM(nav_sat_fix_msg, utm_projector_type,nav_sat_fix_origin, logger);
+  const auto utm = NavSatFix2UTM(nav_sat_fix_msg, utm_projector_type, nav_sat_fix_origin, logger);
   const auto mgrs = UTM2MGRS(utm, precision, logger);
   return mgrs;
 }
