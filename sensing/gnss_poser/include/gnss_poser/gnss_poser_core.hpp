@@ -85,11 +85,12 @@ private:
   rclcpp::Publisher<tier4_debug_msgs::msg::BoolStamped>::SharedPtr fixed_pub_;
 
   CoordinateSystem coordinate_system_;
+  UtmProjectorType utm_projector_type;
   std::string base_frame_;
   std::string gnss_frame_;
   std::string gnss_base_frame_;
   std::string map_frame_;
-
+  sensor_msgs::msg::NavSatFix nav_sat_fix_origin;
   bool use_ublox_receiver_;
 
   int plane_zone_;

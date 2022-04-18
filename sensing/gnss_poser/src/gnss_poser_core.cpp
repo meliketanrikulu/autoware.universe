@@ -34,7 +34,14 @@ GNSSPoser::GNSSPoser(const rclcpp::NodeOptions & node_options)
 {
   int coordinate_system =
     declare_parameter("coordinate_system", static_cast<int>(CoordinateSystem::MGRS));
+
   coordinate_system_ = static_cast<CoordinateSystem>(coordinate_system);
+
+  int utm_projector_type_ = declare_parameter("utm_projector_type",static_cast<int>(UtmProjectorType::LocalCartesian));
+  utm_projector_type = static_cast<UtmProjectorType>(utm_projector_type_);
+  nav_sat_fix_origin.latitude  = declare_parameter("latitude", 0.0);
+  nav_sat_fix_origin.longitude = declare_parameter("longitude", 0.0);
+  nav_sat_fix_origin.altitude  = declare_parameter("altitude", 0.0);
 
   int buff_epoch = declare_parameter("buff_epoch", 1);
   position_buffer_.set_capacity(buff_epoch);
@@ -159,11 +166,14 @@ bool GNSSPoser::canGetCovariance(const sensor_msgs::msg::NavSatFix & nav_sat_fix
 GNSSStat GNSSPoser::convert(
   const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg, CoordinateSystem coordinate_system)
 {
+
+
+
   GNSSStat gnss_stat;
   if (coordinate_system == CoordinateSystem::UTM) {
-    gnss_stat = NavSatFix2UTM(nav_sat_fix_msg, this->get_logger());
+    gnss_stat = NavSatFix2UTM(nav_sat_fix_msg, utm_projector_type,nav_sat_fix_origin, this->get_logger());
   } else if (coordinate_system == CoordinateSystem::MGRS) {
-    gnss_stat = NavSatFix2MGRS(nav_sat_fix_msg, MGRSPrecision::_100MICRO_METER, this->get_logger());
+    gnss_stat = NavSatFix2MGRS(nav_sat_fix_msg, utm_projector_type, nav_sat_fix_origin, MGRSPrecision::_100MICRO_METER, this->get_logger());
   } else if (coordinate_system == CoordinateSystem::PLANE) {
     gnss_stat = NavSatFix2PLANE(nav_sat_fix_msg, plane_zone_, this->get_logger());
   } else {
