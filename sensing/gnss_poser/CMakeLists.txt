@@ -29,8 +29,6 @@ ament_auto_add_library(gnss_poser_node SHARED
 target_link_libraries(gnss_poser_node
   Geographic
 )
-# prevent pluginlib from using boost
-target_compile_definitions(${PROJECT_NAME}_node PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS")
 
 rclcpp_components_register_node(gnss_poser_node
   PLUGIN "gnss_poser::GNSSPoser"
