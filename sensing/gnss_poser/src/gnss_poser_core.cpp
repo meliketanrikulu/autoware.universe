@@ -37,9 +37,6 @@ GNSSPoser::GNSSPoser(const rclcpp::NodeOptions & node_options)
 
   coordinate_system_ = static_cast<CoordinateSystem>(coordinate_system);
 
-  int utm_projector_type_ =
-    declare_parameter("utm_projector_type", static_cast<int>(UtmProjectorType::LocalCartesian));
-  utm_projector_type = static_cast<UtmProjectorType>(utm_projector_type_);
   nav_sat_fix_origin.latitude = declare_parameter("latitude", 0.0);
   nav_sat_fix_origin.longitude = declare_parameter("longitude", 0.0);
   nav_sat_fix_origin.altitude = declare_parameter("altitude", 0.0);
