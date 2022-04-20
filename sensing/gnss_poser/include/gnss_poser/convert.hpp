@@ -56,8 +56,10 @@ double EllipsoidHeight2OrthometricHeight(
   }
   return OrthometricHeight;
 }
-GNSSStat NavSatFix2LocalCartesian(const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg,
-                                  sensor_msgs::msg::NavSatFix nav_sat_fix_origin, const rclcpp::Logger & logger){
+GNSSStat NavSatFix2LocalCartesian(
+  const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg,
+  sensor_msgs::msg::NavSatFix nav_sat_fix_origin, const rclcpp::Logger & logger)
+{
   GNSSStat local_cartesian;
   local_cartesian.coordinate_system = CoordinateSystem::LOCAL_CARTESIAN;
   try {
@@ -70,10 +72,8 @@ GNSSStat NavSatFix2LocalCartesian(const sensor_msgs::msg::NavSatFix & nav_sat_fi
     local_cartesian.latitude = nav_sat_fix_msg.latitude;
     local_cartesian.longitude = nav_sat_fix_msg.longitude;
     local_cartesian.altitude = nav_sat_fix_msg.altitude;
-  }
-  catch (const GeographicLib::GeographicErr & err) {
-    RCLCPP_ERROR_STREAM(
-      logger, "Failed to convert NavSatFix to LocalCartesian" << err.what());
+  } catch (const GeographicLib::GeographicErr & err) {
+    RCLCPP_ERROR_STREAM(logger, "Failed to convert NavSatFix to LocalCartesian" << err.what());
   }
   return local_cartesian;
 }
