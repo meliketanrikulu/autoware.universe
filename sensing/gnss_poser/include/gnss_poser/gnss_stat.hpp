@@ -23,7 +23,7 @@ enum class CoordinateSystem {
   LOCAL_CARTESIAN = 3,
 };
 
-enum class UtmProjectorType{
+enum class UtmProjectorType {
   UTMUPS = 0,
   LocalCartesian = 1,
 };
