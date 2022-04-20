@@ -26,6 +26,7 @@
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 
 #include <string>
+
 namespace gnss_poser
 {
 enum class MGRSPrecision {
@@ -62,6 +63,7 @@ GNSSStat NavSatFix2LocalCartesian(
 {
   GNSSStat local_cartesian;
   local_cartesian.coordinate_system = CoordinateSystem::LOCAL_CARTESIAN;
+
   try {
     GeographicLib::LocalCartesian localCartesian_origin(
       nav_sat_fix_origin.latitude, nav_sat_fix_origin.longitude, nav_sat_fix_origin.altitude);
@@ -82,11 +84,13 @@ GNSSStat NavSatFix2UTM(
 {
   GNSSStat utm;
   utm.coordinate_system = CoordinateSystem::UTM;
+
   try {
     GeographicLib::UTMUPS::Forward(
       nav_sat_fix_msg.latitude, nav_sat_fix_msg.longitude, utm.zone, utm.northup, utm.x, utm.y);
 
     utm.z = EllipsoidHeight2OrthometricHeight(nav_sat_fix_msg, logger);
+
     utm.latitude = nav_sat_fix_msg.latitude;
     utm.longitude = nav_sat_fix_msg.longitude;
     utm.altitude = nav_sat_fix_msg.altitude;

@@ -34,7 +34,6 @@ GNSSPoser::GNSSPoser(const rclcpp::NodeOptions & node_options)
 {
   int coordinate_system =
     declare_parameter("coordinate_system", static_cast<int>(CoordinateSystem::MGRS));
-
   coordinate_system_ = static_cast<CoordinateSystem>(coordinate_system);
 
   nav_sat_fix_origin.latitude = declare_parameter("latitude", 0.0);
