@@ -58,11 +58,23 @@ bool isValidTrajectory(const Trajectory & traj)
 double calcStopDistance(
   const Pose & current_pose, const Trajectory & traj, const double max_dist, const double max_yaw)
 {
-  const auto stop_idx_opt = motion_utils::searchZeroVelocityIndex(traj.points);
-
-  const size_t end_idx = stop_idx_opt ? *stop_idx_opt : traj.points.size() - 1;
   const size_t seg_idx = motion_utils::findFirstNearestSegmentIndexWithSoftConstraints(
     traj.points, current_pose, max_dist, max_yaw);
+  const auto stop_idx_opt = motion_utils::searchZeroVelocityIndex(traj.points);
+  const size_t end_idx = stop_idx_opt ? *stop_idx_opt : traj.points.size() - 1;
+  //  if (end_idx == traj.points.size() - 1 && 1 >= int(end_idx - seg_idx)) {
+  //    // Check the ego in front of the last point of trajectory or not
+  //    const auto yaw = tier4_autoware_utils::getRPY(current_pose).z;
+  //    const Eigen::Vector2d base_pose_vec(std::cos(yaw), std::sin(yaw));
+  //    const Eigen::Vector2d vehicle_to_end_vec(
+  //      traj.points.back().pose.position.x - current_pose.position.x,
+  //      traj.points.back().pose.position.y - current_pose.position.y);
+  //    if (base_pose_vec.dot(vehicle_to_end_vec) < 0.0) {
+  //      return -1.0 *
+  //             tier4_autoware_utils::calcDistance3d(current_pose, traj.points.at(end_idx).pose);
+  //    }
+  //    return tier4_autoware_utils::calcDistance3d(current_pose, traj.points.at(end_idx).pose);
+  //  }
   const double signed_length_on_traj = motion_utils::calcSignedArcLength(
     traj.points, current_pose.position, seg_idx, traj.points.at(end_idx).pose.position,
     std::min(end_idx, traj.points.size() - 2));
@@ -90,30 +102,13 @@ double getPitchByTraj(
   if (trajectory.points.size() <= 1) {
     return 0.0;
   }
+  // find the trajectory point after wheelbase
+  const auto pose_after_distance =
+    findTrajectoryPoseAfterDistance(nearest_idx, wheel_base, trajectory);
+  TrajectoryPoint point_after_distance = trajectory.points.back();
+  point_after_distance.pose = pose_after_distance;
 
-  for (size_t i = nearest_idx + 1; i < trajectory.points.size(); ++i) {
-    const double dist = tier4_autoware_utils::calcDistance2d(
-      trajectory.points.at(nearest_idx), trajectory.points.at(i));
-    if (dist > wheel_base) {
-      // calculate pitch from trajectory between rear wheel (nearest) and front center (i)
-      return calcElevationAngle(trajectory.points.at(nearest_idx), trajectory.points.at(i));
-    }
-  }
-
-  // close to goal
-  for (size_t i = trajectory.points.size() - 1; i > 0; --i) {
-    const double dist =
-      tier4_autoware_utils::calcDistance2d(trajectory.points.back(), trajectory.points.at(i));
-
-    if (dist > wheel_base) {
-      // calculate pitch from trajectory
-      // between wheelbase behind the end of trajectory (i) and the end of trajectory (back)
-      return calcElevationAngle(trajectory.points.at(i), trajectory.points.back());
-    }
-  }
-
-  // calculate pitch from trajectory between the beginning and end of trajectory
-  return calcElevationAngle(trajectory.points.at(0), trajectory.points.back());
+  return calcElevationAngle(trajectory.points.at(nearest_idx), point_after_distance);
 }
 
 double calcElevationAngle(const TrajectoryPoint & p_from, const TrajectoryPoint & p_to)
@@ -128,12 +123,11 @@ double calcElevationAngle(const TrajectoryPoint & p_from, const TrajectoryPoint 
   return pitch;
 }
 
-Pose calcPoseAfterTimeDelay(
-  const Pose & current_pose, const double delay_time, const double current_vel,
-  const double current_acc)
+std::pair<double, double> calcDistAndVelAfterTimeDelay(
+  const double delay_time, const double current_vel, const double current_acc)
 {
   if (delay_time <= 0.0) {
-    return current_pose;
+    return std::make_pair(0.0, 0.0);
   }
 
   // check time to stop
@@ -142,17 +136,11 @@ Pose calcPoseAfterTimeDelay(
   const double delay_time_calculation =
     time_to_stop > 0.0 && time_to_stop < delay_time ? time_to_stop : delay_time;
   // simple linear prediction
-  const double yaw = tf2::getYaw(current_pose.orientation);
+  const double vel_after_delay = current_vel + current_acc * delay_time_calculation;
   const double running_distance = delay_time_calculation * current_vel + 0.5 * current_acc *
                                                                            delay_time_calculation *
                                                                            delay_time_calculation;
-  const double dx = running_distance * std::cos(yaw);
-  const double dy = running_distance * std::sin(yaw);
-
-  auto pred_pose = current_pose;
-  pred_pose.position.x += dx;
-  pred_pose.position.y += dy;
-  return pred_pose;
+  return std::make_pair(running_distance, vel_after_delay);
 }
 
 double lerp(const double v_from, const double v_to, const double ratio)
@@ -187,5 +175,58 @@ double applyDiffLimitFilter(
   const double min_val = -max_val;
   return applyDiffLimitFilter(input_val, prev_val, dt, max_val, min_val);
 }
+
+geometry_msgs::msg::Pose findTrajectoryPoseAfterDistance(
+  const size_t src_idx, const double distance,
+  const autoware_auto_planning_msgs::msg::Trajectory & trajectory)
+{
+  double remain_dist = distance;
+  geometry_msgs::msg::Pose p = trajectory.points.back().pose;
+  for (size_t i = src_idx; i < trajectory.points.size() - 1; ++i) {
+    const double dist = tier4_autoware_utils::calcDistance3d(
+      trajectory.points.at(i).pose, trajectory.points.at(i + 1).pose);
+    if (remain_dist < dist) {
+      if (remain_dist <= 0.0) {
+        return trajectory.points.at(i).pose;
+      }
+      double ratio = remain_dist / dist;
+      p = trajectory.points.at(i).pose;
+      p.position.x = trajectory.points.at(i).pose.position.x +
+                     ratio * (trajectory.points.at(i + 1).pose.position.x -
+                              trajectory.points.at(i).pose.position.x);
+      p.position.y = trajectory.points.at(i).pose.position.y +
+                     ratio * (trajectory.points.at(i + 1).pose.position.y -
+                              trajectory.points.at(i).pose.position.y);
+      p.position.z = trajectory.points.at(i).pose.position.z +
+                     ratio * (trajectory.points.at(i + 1).pose.position.z -
+                              trajectory.points.at(i).pose.position.z);
+      break;
+    }
+    remain_dist -= dist;
+  }
+  return p;
+}
+
+TrajectoryPoint getExtendTrajectoryPoint(
+  const double extend_distance, const TrajectoryPoint & goal_point)
+{
+  tf2::Transform map2goal;
+  tf2::fromMsg(goal_point.pose, map2goal);
+  tf2::Transform local_extend_point;
+  local_extend_point.setOrigin(tf2::Vector3(extend_distance, 0.0, 0.0));
+  tf2::Quaternion q;
+  q.setRPY(0, 0, 0);
+  local_extend_point.setRotation(q);
+  const auto map2extend_point = map2goal * local_extend_point;
+  geometry_msgs::msg::Pose extend_pose;
+  tf2::toMsg(map2extend_point, extend_pose);
+  TrajectoryPoint extend_trajectory_point;
+  extend_trajectory_point.pose = extend_pose;
+  extend_trajectory_point.longitudinal_velocity_mps = goal_point.longitudinal_velocity_mps;
+  extend_trajectory_point.lateral_velocity_mps = goal_point.lateral_velocity_mps;
+  extend_trajectory_point.acceleration_mps2 = goal_point.acceleration_mps2;
+  return extend_trajectory_point;
+}
+
 }  // namespace longitudinal_utils
 }  // namespace autoware::motion::control::pid_longitudinal_controller
