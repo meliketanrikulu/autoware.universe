@@ -47,7 +47,7 @@
 #include <queue>
 #include <string>
 #include <vector>
-
+#include <std_msgs/msg/string.hpp>
 class Simple1DFilter
 {
 public:
@@ -105,7 +105,7 @@ public:
 
 private:
   const Warning warning_;
-
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_rviz_string;
   //!< @brief ekf estimated pose publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_;
   //!< @brief estimated ekf pose with covariance publisher
@@ -124,12 +124,18 @@ private:
   rclcpp::Publisher<tier4_debug_msgs::msg::Float64Stamped>::SharedPtr pub_yaw_bias_;
   //!< @brief ekf estimated yaw bias publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_biased_pose_;
+  //!< @brief ekf estimated yaw bias publisher MT added here
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_biased_pose_on_ndt_closed_state_;
   //!< @brief ekf estimated yaw bias publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_biased_pose_cov_;
   //!< @brief initial pose subscriber
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr sub_initialpose_;
   //!< @brief measurement pose with covariance subscriber
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr sub_pose_with_cov_;
+  //!< @brief measurement pose with covariance subscriber MT added here
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr sub_pose_with_cov_gnss_;
+  //MT added here
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_ndt_switching;
   //!< @brief measurement twist with covariance subscriber
   rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr
     sub_twist_with_cov_;
@@ -151,7 +157,10 @@ private:
   Simple1DFilter pitch_filter_;
 
   const HyperParameters params_;
-
+//  MT added here
+  bool switch_ndt = true;
+  std_msgs::msg::String rviz_logger;
+  double close_twist_counter_ = 0.0;
   double ekf_rate_;
   double ekf_dt_;
 
@@ -192,7 +201,12 @@ private:
    */
   void callbackPoseWithCovariance(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
 
-  /**
+    /**
+   * @brief set poseWithCovariance measurement MT added here
+   */
+    void callbackPoseWithCovarianceGnss(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+
+    /**
    * @brief set twistWithCovariance measurement
    */
   void callbackTwistWithCovariance(geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg);
@@ -269,8 +283,19 @@ private:
     const std_srvs::srv::SetBool::Request::SharedPtr req,
     std_srvs::srv::SetBool::Response::SharedPtr res);
 
+    // MT added here
+    void serviceNDTSwitch(
+            const std_srvs::srv::SetBool::Request::SharedPtr req,
+            std_srvs::srv::SetBool::Response::SharedPtr res);
+
   tier4_autoware_utils::StopWatch<std::chrono::milliseconds> stop_watch_;
 
   friend class EKFLocalizerTestSuite;  // for test code
+
+  ///MT added here
+  std::chrono::system_clock::time_point exe_start_time;
+  std::chrono::system_clock::time_point exe_end_time;
+  float exe_time;
+  int counter = 0;
 };
 #endif  // EKF_LOCALIZER__EKF_LOCALIZER_HPP_

@@ -36,5 +36,98 @@
     <remap from="ekf_twist_with_covariance" to="$(var output_twist_with_covariance_name)"/>
 
     <param from="$(var param_file)"/>
+    <param name="ekf_number" value="0.0" />
   </node>
+
+<!--  <node pkg="ekf_localizer" exec="ekf_localizer" name="ekf_localizer_with_gnss" output="screen">-->
+<!--    <remap from="in_pose_with_covariance" to="$(var input_pose_with_cov_name)"/>-->
+
+<!--    <remap from="in_twist_with_covariance" to="$(var input_twist_with_cov_name)"/>-->
+
+<!--    <remap from="initialpose" to="$(var input_initial_pose_name)"/>-->
+<!--    <remap from="trigger_node_srv" to="$(var input_trigger_node_service_name)"/>-->
+
+<!--    <param name="pose_frame_id" value="map"/>-->
+
+<!--    <remap from="ekf_odom" to="$(var output_odom_name)_with_gnss"/>-->
+<!--    <remap from="ekf_pose" to="$(var output_pose_name)_with_gnss"/>-->
+<!--    <remap from="ekf_pose_with_covariance" to="$(var output_pose_with_covariance_name)_with_gnss"/>-->
+<!--    <remap from="ekf_biased_pose" to="$(var output_biased_pose_name)_with_gnss"/>-->
+<!--    <remap from="ekf_biased_pose_with_covariance" to="$(var output_biased_pose_with_covariance_name)_with_gnss"/>-->
+<!--    <remap from="ekf_twist" to="$(var output_twist_name)_with_gnss"/>-->
+<!--    <remap from="ekf_twist_with_covariance" to="$(var output_twist_with_covariance_name)_with_gnss"/>-->
+
+<!--    <param from="$(var param_file)"/>-->
+<!--    <param name="ekf_number" value="1.0" />-->
+<!--  </node>-->
+
+
+  <node pkg="ekf_localizer" exec="ekf_localizer" name="ekf_localizer_only_velocity" output="screen">
+    <remap from="in_pose_with_covariance" to="$(var input_pose_with_cov_name)"/>
+
+    <remap from="in_twist_with_covariance" to="$(var input_twist_with_cov_name)"/>
+
+    <remap from="initialpose" to="$(var input_initial_pose_name)"/>
+    <remap from="trigger_node_srv" to="$(var input_trigger_node_service_name)"/>
+
+    <param name="pose_frame_id" value="map"/>
+
+    <remap from="ekf_odom" to="$(var output_odom_name)_only_velocity"/>
+    <remap from="ekf_pose" to="$(var output_pose_name)_only_velocity"/>
+    <remap from="ekf_pose_with_covariance" to="$(var output_pose_with_covariance_name)_only_velocity"/>
+    <remap from="ekf_biased_pose" to="$(var output_biased_pose_name)_only_velocity"/>
+    <remap from="ekf_biased_pose_with_covariance" to="$(var output_biased_pose_with_covariance_name)_only_velocity"/>
+    <remap from="ekf_twist" to="$(var output_twist_name)_only_velocity"/>
+    <remap from="ekf_twist_with_covariance" to="$(var output_twist_with_covariance_name)_only_velocity"/>
+
+    <param from="$(var param_file)"/>
+    <param name="ekf_number" value="2.0" />
+<!--    <param name="close_ndt" value="0.0" />-->
+  </node>
+
+<!--  <node pkg="ekf_localizer" exec="ekf_localizer" name="ekf_localizer_only_ndt" output="screen">-->
+<!--    <remap from="in_pose_with_covariance" to="$(var input_pose_with_cov_name)"/>-->
+
+<!--    <remap from="in_twist_with_covariance" to="$(var input_twist_with_cov_name)"/>-->
+
+<!--    <remap from="initialpose" to="$(var input_initial_pose_name)"/>-->
+<!--    <remap from="trigger_node_srv" to="$(var input_trigger_node_service_name)"/>-->
+
+<!--    <param name="pose_frame_id" value="map"/>-->
+
+<!--    <remap from="ekf_odom" to="$(var output_odom_name)_only_ndt"/>-->
+<!--    <remap from="ekf_pose" to="$(var output_pose_name)_only_ndt"/>-->
+<!--    <remap from="ekf_pose_with_covariance" to="$(var output_pose_with_covariance_name)_only_ndt"/>-->
+<!--    <remap from="ekf_biased_pose" to="$(var output_biased_pose_name)_only_ndt"/>-->
+<!--    <remap from="ekf_biased_pose_with_covariance" to="$(var output_biased_pose_with_covariance_name)_only_ndt"/>-->
+<!--    <remap from="ekf_twist" to="$(var output_twist_name)_only_ndt"/>-->
+<!--    <remap from="ekf_twist_with_covariance" to="$(var output_twist_with_covariance_name)_only_ndt"/>-->
+
+<!--    <param from="$(var param_file)"/>-->
+<!--    <param name="ekf_number" value="3.0" />-->
+<!--    &lt;!&ndash;    <param name="close_ndt" value="0.0" />&ndash;&gt;-->
+<!--  </node>-->
+
+<!--    <node pkg="ekf_localizer" exec="ekf_localizer" name="ekf_localizer_only_gnss" output="screen">-->
+<!--      <remap from="in_pose_with_covariance" to="$(var input_pose_with_cov_name)"/>-->
+
+<!--      <remap from="in_twist_with_covariance" to="$(var input_twist_with_cov_name)"/>-->
+
+<!--      <remap from="initialpose" to="$(var input_initial_pose_name)"/>-->
+<!--      <remap from="trigger_node_srv" to="$(var input_trigger_node_service_name)"/>-->
+
+<!--      <param name="pose_frame_id" value="map"/>-->
+
+<!--      <remap from="ekf_odom" to="$(var output_odom_name)_only_gnss"/>-->
+<!--      <remap from="ekf_pose" to="$(var output_pose_name)_only_gnss"/>-->
+<!--      <remap from="ekf_pose_with_covariance" to="$(var output_pose_with_covariance_name)_only_gnss"/>-->
+<!--      <remap from="ekf_biased_pose" to="$(var output_biased_pose_name)_only_gnss"/>-->
+<!--      <remap from="ekf_biased_pose_with_covariance" to="$(var output_biased_pose_with_covariance_name)_only_gnss"/>-->
+<!--      <remap from="ekf_twist" to="$(var output_twist_name)_only_gnss"/>-->
+<!--      <remap from="ekf_twist_with_covariance" to="$(var output_twist_with_covariance_name)_only_gnss"/>-->
+
+<!--      <param from="$(var param_file)"/>-->
+<!--      <param name="ekf_number" value="4.0" />-->
+  <!--    <param name="close_ndt" value="0.0" />-->
+<!--    </node>-->
 </launch>

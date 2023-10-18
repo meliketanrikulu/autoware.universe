@@ -1,6 +1,13 @@
+#/**:
+#  ros__parameters:
+#    speed_scale_factor: 1.0  # [.]
+#    velocity_stddev_xx: 0.2  # [m/s]
+#    angular_velocity_stddev_zz: 0.1  # [rad/s]
+#    frame_id: base_link
+# Estimated by deviation_estimator
 /**:
   ros__parameters:
-    speed_scale_factor: 1.0  # [.]
-    velocity_stddev_xx: 0.2  # [m/s]
-    angular_velocity_stddev_zz: 0.1  # [rad/s]
-    frame_id: base_link
+    speed_scale_factor: 1.00039
+    velocity_stddev_xx: 0.89694
+    angular_velocity_stddev_zz: 0.1 # Default value
+    frame_id: base_link # Default value

@@ -101,6 +101,7 @@ private:
   autoware_sensing_msgs::msg::GnssInsOrientationStamped::SharedPtr
     msg_gnss_ins_orientation_stamped_;
   int gnss_pose_pub_method;
+  int freq_counter = 0;
 };
 }  // namespace gnss_poser
 

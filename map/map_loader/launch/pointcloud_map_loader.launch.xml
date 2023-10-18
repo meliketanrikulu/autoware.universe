@@ -11,4 +11,5 @@
     <param name="pcd_metadata_path" value="$(var pcd_metadata_path)"/>
     <param from="$(var pointcloud_map_loader_param_path)"/>
   </node>
+
 </launch>

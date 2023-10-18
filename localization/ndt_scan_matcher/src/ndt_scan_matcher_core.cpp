@@ -193,6 +193,9 @@ NDTScanMatcher::NDTScanMatcher()
   ndt_pose_with_covariance_pub_ =
     this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
       "ndt_pose_with_covariance", 10);
+  ndt_pose_as_gnss_pose_name_with_covariance_pub_ =
+            this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
+                    "/sensing/gnss/pose_with_covariance", 10);
   initial_pose_with_covariance_pub_ =
     this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
       "initial_pose_with_covariance", 10);
@@ -581,6 +584,7 @@ void NDTScanMatcher::publish_pose(
   if (is_converged) {
     ndt_pose_pub_->publish(result_pose_stamped_msg);
     ndt_pose_with_covariance_pub_->publish(result_pose_with_cov_msg);
+    ndt_pose_as_gnss_pose_name_with_covariance_pub_->publish(result_pose_with_cov_msg);
   }
 }
 

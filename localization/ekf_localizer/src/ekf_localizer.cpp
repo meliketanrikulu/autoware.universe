@@ -39,7 +39,7 @@
 #include <queue>
 #include <string>
 #include <utility>
-
+#include "std_msgs/msg/string.hpp"
 // clang-format off
 #define PRINT_MAT(X) std::cout << #X << ":\n" << X << std::endl << std::endl
 #define DEBUG_INFO(...) {if (params_.show_debug_info) {RCLCPP_INFO(__VA_ARGS__);}}
@@ -76,6 +76,7 @@ EKFLocalizer::EKFLocalizer(const std::string & node_name, const rclcpp::NodeOpti
     this, get_clock(), rclcpp::Rate(params_.tf_rate_).period(),
     std::bind(&EKFLocalizer::timerTFCallback, this));
 
+  pub_rviz_string = create_publisher<std_msgs::msg::String>("/ndt_status",1);
   pub_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>("ekf_pose", 1);
   pub_pose_cov_ =
     create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("ekf_pose_with_covariance", 1);
@@ -85,14 +86,21 @@ EKFLocalizer::EKFLocalizer(const std::string & node_name, const rclcpp::NodeOpti
     "ekf_twist_with_covariance", 1);
   pub_yaw_bias_ = create_publisher<tier4_debug_msgs::msg::Float64Stamped>("estimated_yaw_bias", 1);
   pub_biased_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>("ekf_biased_pose", 1);
+  pub_biased_pose_on_ndt_closed_state_ = create_publisher<geometry_msgs::msg::PoseStamped>("ekf_poses_on_ndt_closed_state",1);
   pub_biased_pose_cov_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "ekf_biased_pose_with_covariance", 1);
   sub_initialpose_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "initialpose", 1, std::bind(&EKFLocalizer::callbackInitialPose, this, _1));
   sub_pose_with_cov_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "in_pose_with_covariance", 1, std::bind(&EKFLocalizer::callbackPoseWithCovariance, this, _1));
+  sub_pose_with_cov_gnss_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+          "/sensing/gnss/pose_with_covariance",1,std::bind(&EKFLocalizer::callbackPoseWithCovarianceGnss, this, _1));
   sub_twist_with_cov_ = create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
     "in_twist_with_covariance", 1, std::bind(&EKFLocalizer::callbackTwistWithCovariance, this, _1));
+
+  service_ndt_switching = create_service<std_srvs::srv::SetBool>("switch_ndt", std::bind(
+                                                             &EKFLocalizer::serviceNDTSwitch, this, std::placeholders::_1, std::placeholders::_2),
+                                                     rclcpp::ServicesQoS().get_rmw_qos_profile());
   service_trigger_node_ = create_service<std_srvs::srv::SetBool>(
     "trigger_node_srv",
     std::bind(
@@ -261,7 +269,10 @@ void EKFLocalizer::timerTFCallback()
   geometry_msgs::msg::TransformStamped transform_stamped;
   transform_stamped = tier4_autoware_utils::pose2transform(current_ekf_pose_, "base_link");
   transform_stamped.header.stamp = this->now();
-  tf_br_->sendTransform(transform_stamped);
+
+    if(params_.ekf_number_ == 0.0) {
+      tf_br_->sendTransform(transform_stamped);
+  }
 }
 
 /*
@@ -334,17 +345,80 @@ void EKFLocalizer::callbackInitialPose(
   initSimple1DFilters(*initialpose);
 }
 
+
+/*
+ * callbackPoseWithCovariance MT added here
+ */
+void EKFLocalizer::callbackPoseWithCovarianceGnss(
+        geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+{
+    if (!is_activated_) {
+        return;
+    }
+
+    if(params_.ekf_number_ == 1.0 || params_.ekf_number_ == 4.0) {
+        pose_queue_.push(msg);
+//        std::cout<<"GNSS ADDED -------"<<std::endl;
+    }
+//    else{
+//        std::cout<<"GNSS NOT ADDED -------"<<std::endl;
+//    }
+
+}
+
 /*
  * callbackPoseWithCovariance
  */
 void EKFLocalizer::callbackPoseWithCovariance(
   geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
+
   if (!is_activated_) {
     return;
   }
 
-  pose_queue_.push(msg);
+  if(params_.ekf_number_ != 2.0 && (params_.ekf_number_ != 4.0 ) ) {
+      pose_queue_.push(msg);
+  }
+  else if(params_.ekf_number_ == 2.0 && exe_time >= 1 && exe_time <= 5) {
+//      else if(params_.ekf_number_ == 2.0 && switch_ndt == false ) {
+
+      exe_end_time = std::chrono::system_clock::now();
+      const auto duration_micro_sec =
+              std::chrono::duration_cast<std::chrono::microseconds>(exe_end_time - exe_start_time).count();
+      exe_time = static_cast<float>(duration_micro_sec) / 1000000.0f;
+
+      geometry_msgs::msg::PoseStamped pose_on_ndt_closed_state;
+      pose_on_ndt_closed_state.pose = msg->pose.pose;
+      pose_on_ndt_closed_state.header = msg->header;
+      pub_biased_pose_on_ndt_closed_state_->publish(pose_on_ndt_closed_state);
+      std::cout<<"NDT CLOSED--------------------"<<std::endl;
+      rviz_logger.data = "NDT Closed";
+//      }
+      counter = 0;
+  }
+  else {
+      pose_queue_.push(msg);
+      if(counter == 0){
+          exe_start_time = std::chrono::system_clock::now();
+      }
+      counter++;
+      exe_end_time = std::chrono::system_clock::now();
+      const auto duration_micro_sec =
+              std::chrono::duration_cast<std::chrono::microseconds>(exe_end_time - exe_start_time).count();
+      exe_time = static_cast<float>(duration_micro_sec) / 1000000.0f;
+      std::cout<<"NDT OPEN --------------------"<<std::endl;
+      rviz_logger.data = "NDT Active";
+
+  }
+//  std::cout<<"EXE_TIME : "<<exe_time<<std::endl;
+  if(rviz_logger.data != "") {
+      pub_rviz_string->publish(rviz_logger);
+  }
+//  else{
+//      rviz_logger.data = "NDT Active";
+//      pub_rviz_string->publish(rviz_logger);
+//  }
 }
 
 /*
@@ -353,7 +427,7 @@ void EKFLocalizer::callbackPoseWithCovariance(
 void EKFLocalizer::callbackTwistWithCovariance(
   geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg)
 {
-  twist_queue_.push(msg);
+        twist_queue_.push(msg);
 }
 
 /*
@@ -657,4 +731,25 @@ void EKFLocalizer::serviceTriggerNode(
   }
   res->success = true;
   return;
+}
+
+// MT added here
+void EKFLocalizer::serviceNDTSwitch(
+        const std_srvs::srv::SetBool::Request::SharedPtr req,
+        std_srvs::srv::SetBool::Response::SharedPtr res){
+    if (req->data) {
+        pose_queue_.clear();
+        twist_queue_.clear();
+        switch_ndt = true;
+//        std::cout<<"---------  NDT Active  --------"<<std::endl;
+//        rviz_logger.data = "NDT Active";
+    } else {
+        switch_ndt = false;
+//        rviz_logger.data = "NDT Closed";
+//        std::cout<<"---------  NDT Closed --------"<<std::endl;
+    }
+    res->success = true;
+    return;
+
+
 }
