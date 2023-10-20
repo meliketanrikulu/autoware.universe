@@ -48,6 +48,8 @@
 #include <string>
 #include <vector>
 
+#include <std_msgs/msg/string.hpp>
+
 class Simple1DFilter
 {
 public:
@@ -105,6 +107,8 @@ public:
 
 private:
   const Warning warning_;
+
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_rviz_string;
 
   //!< @brief ekf estimated pose publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_;
@@ -360,6 +364,7 @@ private:
          const std_srvs::srv::SetBool::Request::SharedPtr req,
          std_srvs::srv::SetBool::Response::SharedPtr res);
     bool switch_ndt = true;
+    std_msgs::msg::String rviz_logger;
 
   friend class EKFLocalizerTestSuite;  // for test code
 };

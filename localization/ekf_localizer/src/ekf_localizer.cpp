@@ -83,6 +83,7 @@ EKFLocalizer::EKFLocalizer(const std::string & node_name, const rclcpp::NodeOpti
     this, get_clock(), rclcpp::Rate(params_.tf_rate_).period(),
     std::bind(&EKFLocalizer::timerTFCallback, this));
 
+  pub_rviz_string = create_publisher<std_msgs::msg::String>("/ndt_status",1);
   pub_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>("ekf_pose", 1);
   pub_pose_partial_dead_reckogning_ = create_publisher<geometry_msgs::msg::PoseStamped>("pub_pose_partial_dead_reckogning_1",1);
   pub_pose_partial_dead_reckogning_2_ = create_publisher<geometry_msgs::msg::PoseStamped>("pub_pose_partial_dead_reckogning_2",1);
@@ -365,23 +366,28 @@ void EKFLocalizer::timerCallbackNdtCut()
 //    std::cout<<"TIME [S]     "<<stop_watch_ndt_cut_.toc() * 0.001 <<std::endl;
 
     if (!pose_queue_.empty() ) {
-        if ((stop_watch_ndt_cut_.toc() * 0.001) <= 20.0) {
-//            DEBUG_INFO(get_logger(), "------------------------- start Pose -------------------------");
-            stop_watch_.tic();
+        if ((stop_watch_ndt_cut_.toc() * 0.001) >= 2.0) {
+//    if(switch_ndt == true){
+//        DEBUG_INFO(get_logger(), "------------------------- start Pose -------------------------");
+        stop_watch_.tic();
 
-            // save the initial size because the queue size can change in the loop
-            const size_t n = pose_queue_.size();
-            for (size_t i = 0; i < n; ++i) {
-                const auto pose = pose_queue_.pop_increment_age();
-                measurementUpdatePoseDR(*pose);
-            }
-//            DEBUG_INFO(get_logger(), "[EKF] measurementUpdatePoseDR calc time = %f [ms]", stop_watch_.toc());
-//            DEBUG_INFO(get_logger(), "------------------------- end Pose -------------------------\n");
+        // save the initial size because the queue size can change in the loop
+        const size_t n = pose_queue_.size();
+        for (size_t i = 0; i < n; ++i) {
+            const auto pose = pose_queue_.pop_increment_age();
+            measurementUpdatePoseDR(*pose);
         }
-        else if((stop_watch_ndt_cut_.toc() * 0.001) >= 20.0)
-        {
-            stop_watch_ndt_cut_.tic();
-            ekf_dr_ = ekf_;
+//        DEBUG_INFO(get_logger(), "[EKF] measurementUpdatePoseDR calc time = %f [ms]", stop_watch_.toc());
+//        DEBUG_INFO(get_logger(), "------------------------- end Pose -------------------------\n");
+
+        ekf_dr_ = ekf_;
+        stop_watch_ndt_cut_.tic();
+
+        }
+        else if((stop_watch_ndt_cut_.toc() * 0.001) <= 2.0){
+//        if(switch_ndt == false){
+//            ekf_dr_ = ekf_;
+//        std::cout<<"NDT CLOSED"<<std::endl;
         }
     }
 
@@ -643,7 +649,7 @@ void EKFLocalizer::callbackPoseWithCovariance(
   if (!is_activated_) {
     return;
   }
-
+//    std::cout<<" HELLO I AM HERE !!!"<<std::endl;
   pose_queue_.push(msg);
 }
 
@@ -1321,11 +1327,14 @@ void EKFLocalizer::serviceNDTSwitch(
     if (req->data) {
         switch_ndt = true;
         std::cout<<"---------  NDT Active  --------"<<std::endl;
-//        rviz_logger.data = "NDT Active";
+        rviz_logger.data = "NDT Active";
     } else {
         switch_ndt = false;
-//        rviz_logger.data = "NDT Closed";
+        rviz_logger.data = "NDT Closed";
         std::cout<<"---------  NDT Closed --------"<<std::endl;
+    }
+    if(rviz_logger.data != "") {
+        pub_rviz_string->publish(rviz_logger);
     }
     res->success = true;
     return;
