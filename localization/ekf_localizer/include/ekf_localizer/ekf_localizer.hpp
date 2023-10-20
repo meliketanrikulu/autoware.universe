@@ -108,6 +108,10 @@ private:
 
   //!< @brief ekf estimated pose publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_;
+  //!< @brief ekf estimated pose publisher MT ADDED HERE
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_partial_dead_reckogning_;
+  //!< @brief ekf estimated pose publisher MT ADDED HERE
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_partial_dead_reckogning_2_;
   //!< @brief estimated ekf pose with covariance publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_pose_cov_;
   //!< @brief estimated ekf odometry publisher
@@ -135,8 +139,16 @@ private:
     sub_twist_with_cov_;
   //!< @brief time for ekf calculation callback
   rclcpp::TimerBase::SharedPtr timer_control_;
+  //!< @brief time for ekf calculation callback
+  rclcpp::TimerBase::SharedPtr timer_control_ndt_cut_;
+  //!< @brief time for ekf calculation callback
+  rclcpp::TimerBase::SharedPtr timer_control_ndt_cut_2_;
   //!< @brief last predict time
   std::shared_ptr<const rclcpp::Time> last_predict_time_;
+  //!< @brief last predict time MT ADDED HERE
+  std::shared_ptr<const rclcpp::Time> last_predict_time_dr_;
+  //!< @brief last predict time MT ADDED HERE
+  std::shared_ptr<const rclcpp::Time> last_predict_time_dr_2_;
   //!< @brief trigger_node service
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_trigger_node_;
 
@@ -146,9 +158,20 @@ private:
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_br_;
   //!< @brief  extended kalman filter instance.
   TimeDelayKalmanFilter ekf_;
+  TimeDelayKalmanFilter ekf_dr_;
+  TimeDelayKalmanFilter ekf_dr_2_;
+
   Simple1DFilter z_filter_;
+  Simple1DFilter z_filter_dr_;
+  Simple1DFilter z_filter_dr_2_;
+
   Simple1DFilter roll_filter_;
+  Simple1DFilter roll_filter_dr_;
+  Simple1DFilter roll_filter_dr_2_;
+
   Simple1DFilter pitch_filter_;
+  Simple1DFilter pitch_filter_dr_;
+  Simple1DFilter pitch_filter_dr_2_;
 
   const HyperParameters params_;
 
@@ -161,9 +184,20 @@ private:
 
   /* process noise variance for discrete model */
   double proc_cov_yaw_d_;       //!< @brief  discrete yaw process noise
+  double proc_cov_yaw_d_1_;       //!< @brief  discrete yaw process noise
+  double proc_cov_yaw_d_2_;       //!< @brief  discrete yaw process noise
+
   double proc_cov_yaw_bias_d_;  //!< @brief  discrete yaw bias process noise
+  double proc_cov_yaw_bias_d_1_;  //!< @brief  discrete yaw bias process noise
+  double proc_cov_yaw_bias_d_2_;  //!< @brief  discrete yaw bias process noise
+
   double proc_cov_vx_d_;        //!< @brief  discrete process noise in d_vx=0
+  double proc_cov_vx_d_1_;        //!< @brief  discrete process noise in d_vx=0
+  double proc_cov_vx_d_2_;        //!< @brief  discrete process noise in d_vx=0
+
   double proc_cov_wz_d_;        //!< @brief  discrete process noise in d_wz=0
+  double proc_cov_wz_d_1_;        //!< @brief  discrete process noise in d_wz=0
+  double proc_cov_wz_d_2_;        //!< @brief  discrete process noise in d_wz=0
 
   bool is_activated_;
 
@@ -171,8 +205,10 @@ private:
   AgedObjectQueue<geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr> twist_queue_;
 
   geometry_msgs::msg::PoseStamped current_ekf_pose_;  //!< @brief current estimated pose
-  geometry_msgs::msg::PoseStamped
-    current_biased_ekf_pose_;  //!< @brief current estimated pose without yaw bias correction
+  geometry_msgs::msg::PoseStamped current_ekf_pose_dr;  //!< @brief current estimated pose
+  geometry_msgs::msg::PoseStamped current_biased_ekf_pose_;  //!< @brief current estimated pose without yaw bias correction
+  geometry_msgs::msg::PoseStamped current_biased_ekf_pose_dr_;  //!< @brief current estimated pose without yaw bias correction
+  geometry_msgs::msg::PoseStamped current_biased_ekf_pose_dr_2_;  //!< @brief current estimated pose without yaw bias correction
   geometry_msgs::msg::TwistStamped current_ekf_twist_;  //!< @brief current estimated twist
   std::array<double, 36ul> current_pose_covariance_;
   std::array<double, 36ul> current_twist_covariance_;
@@ -181,7 +217,17 @@ private:
    * @brief computes update & prediction of EKF for each ekf_dt_[s] time
    */
   void timerCallback();
+  /**
+   * @brief computes update & prediction of EKF for each ekf_dt_[s] time
+   * MT ADDED HERE
+   */
+    void timerCallbackNdtCut();
 
+ /**
+ * @brief computes update & prediction of EKF for each ekf_dt_[s] time
+ * MT ADDED HERE
+ */
+    void timerCallbackNdtCut2();
   /**
    * @brief publish tf for tf_rate [Hz]
    */
@@ -211,6 +257,16 @@ private:
    * @brief update predict frequency
    */
   void updatePredictFrequency();
+  /**
+   * @brief update predict frequency
+   * MT ADDED HERE
+   */
+  void updatePredictFrequencyDR();
+  /**
+   * @brief update predict frequency
+   * MT ADDED HERE
+   */
+  void updatePredictFrequencyDR2();
 
   /**
    * @brief compute EKF prediction
@@ -222,12 +278,36 @@ private:
    * @param pose measurement value
    */
   void measurementUpdatePose(const geometry_msgs::msg::PoseWithCovarianceStamped & pose);
+  /**
+   * @brief compute EKF update with pose measurement
+   * @param pose measurement value
+   * MT ADDED HERE
+   */
+  void measurementUpdatePoseDR(const geometry_msgs::msg::PoseWithCovarianceStamped & pose);
+  /**
+   * @brief compute EKF update with pose measurement
+   * @param pose measurement value
+   * MT ADDED HERE
+   */
+  void measurementUpdatePoseDR2(const geometry_msgs::msg::PoseWithCovarianceStamped & pose);
 
   /**
    * @brief compute EKF update with pose measurement
    * @param twist measurement value
    */
   void measurementUpdateTwist(const geometry_msgs::msg::TwistWithCovarianceStamped & twist);
+  /**
+   * @brief compute EKF update with pose measurement
+   * @param twist measurement value
+   * mt added here
+   */
+  void measurementUpdateTwistDR(const geometry_msgs::msg::TwistWithCovarianceStamped & twist);
+  /**
+   * @brief compute EKF update with pose measurement
+   * @param twist measurement value
+   * mt added here
+   */
+  void measurementUpdateTwistDR2(const geometry_msgs::msg::TwistWithCovarianceStamped & twist);
 
   /**
    * @brief get transform from frame_id
@@ -244,7 +324,7 @@ private:
   /**
    * @brief publish current EKF estimation result
    */
-  void publishEstimateResult();
+  void publishEstimateResult(double id);
 
   /**
    * @brief for debug
@@ -255,7 +335,7 @@ private:
    * @brief update simple1DFilter
    */
   void updateSimple1DFilters(
-    const geometry_msgs::msg::PoseWithCovarianceStamped & pose, const size_t smoothing_step);
+    const geometry_msgs::msg::PoseWithCovarianceStamped & pose, const size_t smoothing_step, double ekf_id);
 
   /**
    * @brief initialize simple1DFilter
@@ -270,6 +350,16 @@ private:
     std_srvs::srv::SetBool::Response::SharedPtr res);
 
   tier4_autoware_utils::StopWatch<std::chrono::milliseconds> stop_watch_;
+  tier4_autoware_utils::StopWatch<std::chrono::milliseconds> stop_watch_ndt_cut_;
+  tier4_autoware_utils::StopWatch<std::chrono::milliseconds> stop_watch_ndt_cut_2_;
+
+
+  // MT added here
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_ndt_switching;
+  void serviceNDTSwitch(
+         const std_srvs::srv::SetBool::Request::SharedPtr req,
+         std_srvs::srv::SetBool::Response::SharedPtr res);
+    bool switch_ndt = true;
 
   friend class EKFLocalizerTestSuite;  // for test code
 };
