@@ -106,6 +106,12 @@ public:
 private:
   const Warning warning_;
 
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_ndt_switching;
+
+  //!< @brief ekf estimated pose publisher
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_dr_;
+  //!< @brief ekf estimated pose publisher
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_dr_2_;
   //!< @brief ekf estimated pose publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_;
   //!< @brief estimated ekf pose with covariance publisher
@@ -145,12 +151,24 @@ private:
   //!< @brief tf broadcaster
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_br_;
   //!< @brief  extended kalman filter instance.
-  TimeDelayKalmanFilter ekf_;
-  Simple1DFilter z_filter_;
-  Simple1DFilter roll_filter_;
-  Simple1DFilter pitch_filter_;
+  TimeDelayKalmanFilter ekf_aw_;
+  TimeDelayKalmanFilter ekf_dr_;
+  TimeDelayKalmanFilter ekf_dr_2_;
 
-  const HyperParameters params_;
+  Simple1DFilter z_filter_aw_;
+  Simple1DFilter roll_filter_aw_;
+  Simple1DFilter pitch_filter_aw_;
+
+  Simple1DFilter z_filter_dr_;
+  Simple1DFilter roll_filter_dr_;
+  Simple1DFilter pitch_filter_dr_;
+
+  Simple1DFilter z_filter_dr_2_;
+  Simple1DFilter roll_filter_dr_2_;
+  Simple1DFilter pitch_filter_dr_2_;
+
+
+    const HyperParameters params_;
 
   double ekf_rate_;
   double ekf_dt_;
@@ -171,6 +189,7 @@ private:
   AgedObjectQueue<geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr> twist_queue_;
 
   geometry_msgs::msg::PoseStamped current_ekf_pose_;  //!< @brief current estimated pose
+  geometry_msgs::msg::PoseStamped actual_current_ekf_pose_;  //!< @brief current estimated pose
   geometry_msgs::msg::PoseStamped
     current_biased_ekf_pose_;  //!< @brief current estimated pose without yaw bias correction
   geometry_msgs::msg::TwistStamped current_ekf_twist_;  //!< @brief current estimated twist
@@ -217,17 +236,25 @@ private:
    */
   void predictKinematicsModel();
 
+    /**
+   * @brief compute EKF update with pose prediction
+   * @param pose prediction value
+     * MT ADDED HERE
+   */
+  TimeDelayKalmanFilter predictionUpdatePose( TimeDelayKalmanFilter ekf_);
   /**
    * @brief compute EKF update with pose measurement
    * @param pose measurement value
    */
-  void measurementUpdatePose(const geometry_msgs::msg::PoseWithCovarianceStamped & pose);
+//  void measurementUpdatePose(const geometry_msgs::msg::PoseWithCovarianceStamped & pose);
+    TimeDelayKalmanFilter measurementUpdatePose(const geometry_msgs::msg::PoseWithCovarianceStamped & pose, TimeDelayKalmanFilter ekf_, double id);
 
   /**
    * @brief compute EKF update with pose measurement
    * @param twist measurement value
    */
-  void measurementUpdateTwist(const geometry_msgs::msg::TwistWithCovarianceStamped & twist);
+//  void measurementUpdateTwist(const geometry_msgs::msg::TwistWithCovarianceStamped & twist);
+    TimeDelayKalmanFilter measurementUpdateTwist(const geometry_msgs::msg::TwistWithCovarianceStamped & twist, TimeDelayKalmanFilter ekf_);
 
   /**
    * @brief get transform from frame_id
@@ -244,7 +271,8 @@ private:
   /**
    * @brief publish current EKF estimation result
    */
-  void publishEstimateResult();
+  void publishEstimateResult(double id);
+
 
   /**
    * @brief for debug
@@ -255,7 +283,7 @@ private:
    * @brief update simple1DFilter
    */
   void updateSimple1DFilters(
-    const geometry_msgs::msg::PoseWithCovarianceStamped & pose, const size_t smoothing_step);
+    const geometry_msgs::msg::PoseWithCovarianceStamped & pose, const size_t smoothing_step, double id);
 
   /**
    * @brief initialize simple1DFilter
@@ -271,6 +299,12 @@ private:
 
   tier4_autoware_utils::StopWatch<std::chrono::milliseconds> stop_watch_;
 
+  // MT added here
+  void serviceNDTSwitch(
+          const std_srvs::srv::SetBool::Request::SharedPtr req,
+          std_srvs::srv::SetBool::Response::SharedPtr res);
+  bool switch_ndt = true;
   friend class EKFLocalizerTestSuite;  // for test code
+
 };
 #endif  // EKF_LOCALIZER__EKF_LOCALIZER_HPP_
