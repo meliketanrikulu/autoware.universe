@@ -124,6 +124,8 @@ EKFLocalizer::EKFLocalizer(const std::string & node_name, const rclcpp::NodeOpti
   /* debug */
   pub_debug_ = create_publisher<tier4_debug_msgs::msg::Float64MultiArrayStamped>("debug", 1);
   pub_measured_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>("debug/measured_pose", 1);
+
+  stop_watch_dr_.tic();
 }
 
 /*
@@ -158,7 +160,6 @@ void EKFLocalizer::timerCallback()
       "The node is not activated. Provide initial pose to pose_initializer", 2000);
     return;
   }
-
   DEBUG_INFO(get_logger(), "========================= timer called =========================");
 
   /* update predict frequency with measured timer rate */
@@ -176,22 +177,35 @@ void EKFLocalizer::timerCallback()
 
   /* pose measurement update */
   if (!pose_queue_.empty()) {
-    DEBUG_INFO(get_logger(), "------------------------- start Pose -------------------------");
-    stop_watch_.tic();
+      DEBUG_INFO(get_logger(), "------------------------- start Pose -------------------------");
+      stop_watch_.tic();
 
-    // save the initial size because the queue size can change in the loop
-    const size_t n = pose_queue_.size();
-    for (size_t i = 0; i < n; ++i) {
-      const auto pose = pose_queue_.pop_increment_age();
-      ekf_aw_ = measurementUpdatePose(*pose,ekf_aw_, 0);
-      if(switch_ndt == true) {
-          ekf_dr_ = measurementUpdatePose(*pose, ekf_dr_, 1);
-          ekf_dr_2_ = measurementUpdatePose(*pose, ekf_dr_2_, 2);
+      // save the initial size because the queue size can change in the loop
+      const size_t n = pose_queue_.size();
+      for (size_t i = 0; i < n; ++i) {
+          const auto pose = pose_queue_.pop_increment_age();
+          ekf_aw_ = measurementUpdatePose(*pose, ekf_aw_, 0);
       }
-    }
+  }
+
+      if ((stop_watch_dr_.toc() * 0.001) <= 2.0) {
+          if (reset_ekf == true) {
+//              ekf_dr_ = ekf_aw_;
+              ekf_dr_2_ = ekf_aw_;
+              reset_ekf = false;
+          }
+      } else if ((stop_watch_dr_.toc() * 0.001) <= 4.0) {
+          if (reset_ekf == false) {
+              ekf_dr_ = ekf_aw_;
+              reset_ekf = true;
+          }
+      } else {
+          stop_watch_dr_.tic();
+      }
+
     DEBUG_INFO(get_logger(), "[EKF] measurementUpdatePose calc time = %f [ms]", stop_watch_.toc());
     DEBUG_INFO(get_logger(), "------------------------- end Pose -------------------------\n");
-  }
+
 
   /* twist measurement update */
   if (!twist_queue_.empty()) {

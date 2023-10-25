@@ -107,7 +107,7 @@ private:
   const Warning warning_;
 
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_ndt_switching;
-
+  tier4_autoware_utils::StopWatch<std::chrono::milliseconds> stop_watch_dr_;
   //!< @brief ekf estimated pose publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_dr_;
   //!< @brief ekf estimated pose publisher
@@ -305,6 +305,7 @@ private:
           std_srvs::srv::SetBool::Response::SharedPtr res);
   bool switch_ndt = true;
   friend class EKFLocalizerTestSuite;  // for test code
+  bool reset_ekf = true;
 
 };
 #endif  // EKF_LOCALIZER__EKF_LOCALIZER_HPP_
