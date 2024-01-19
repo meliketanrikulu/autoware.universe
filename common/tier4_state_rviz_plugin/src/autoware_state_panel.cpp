@@ -44,7 +44,23 @@ AutowareStatePanel::AutowareStatePanel(QWidget * parent) : rviz_common::Panel(pa
   gear_layout->addWidget(gear_prefix_label_ptr);
   gear_layout->addWidget(gear_label_ptr_);
 
-  // Velocity Limit
+  set_ndt_covariance_button_ptr_ = new QPushButton("Set NDT RMSE");
+  set_gnss_pose_covariance_ptr_ = new QPushButton("Set GNSS pose RMSE");
+
+
+  pub_ndt_covariance_input_ = new QDoubleSpinBox();
+  pub_ndt_covariance_input_->setRange(-100.0, 100.0);
+  pub_ndt_covariance_input_->setValue(0.0);
+  pub_ndt_covariance_input_->setSingleStep(0.1);
+  connect(set_ndt_covariance_button_ptr_, SIGNAL(clicked()), this, SLOT(onClickNDTCovariance()));
+
+  pub_gnss_pose_covariance_input_ = new QDoubleSpinBox();
+  pub_gnss_pose_covariance_input_->setRange(-100.0, 100.0);
+  pub_gnss_pose_covariance_input_->setValue(0.0);
+  pub_gnss_pose_covariance_input_->setSingleStep(0.1);
+  connect(set_gnss_pose_covariance_ptr_, SIGNAL(clicked()), this, SLOT(onClickGNSSPoseCovariance()));
+
+    // Velocity Limit
   velocity_limit_button_ptr_ = new QPushButton("Send Velocity Limit");
   pub_velocity_limit_input_ = new QSpinBox();
   pub_velocity_limit_input_->setRange(-100.0, 100.0);
@@ -58,6 +74,8 @@ AutowareStatePanel::AutowareStatePanel(QWidget * parent) : rviz_common::Panel(pa
 
   // Layout
   auto * v_layout = new QVBoxLayout;
+  auto * set_ndt_covariance_layout = new QHBoxLayout();
+  auto * set_gnss_pose_covariance_layout = new QHBoxLayout();
   auto * velocity_limit_layout = new QHBoxLayout();
   v_layout->addWidget(makeOperationModeGroup());
   v_layout->addWidget(makeControlModeGroup());
@@ -76,6 +94,16 @@ AutowareStatePanel::AutowareStatePanel(QWidget * parent) : rviz_common::Panel(pa
   velocity_limit_layout->addWidget(new QLabel("  [km/h]"));
   velocity_limit_layout->addWidget(emergency_button_ptr_);
   v_layout->addLayout(velocity_limit_layout);
+
+  set_ndt_covariance_layout->addWidget(set_ndt_covariance_button_ptr_);
+  set_ndt_covariance_layout->addWidget(pub_ndt_covariance_input_);
+//set_ndt_covariance_layout->addWidget(new QLabel("  [/h]"));
+  v_layout->addLayout(set_ndt_covariance_layout);
+
+  set_gnss_pose_covariance_layout->addWidget(set_gnss_pose_covariance_ptr_);
+  set_gnss_pose_covariance_layout->addWidget(pub_gnss_pose_covariance_input_);
+//set_gnss_pose_covariance_layout->addWidget(new QLabel("  [/h]"));
+  v_layout->addLayout(set_gnss_pose_covariance_layout);
   setLayout(v_layout);
 }
 
@@ -280,6 +308,12 @@ void AutowareStatePanel::onInitialize()
 
   pub_velocity_limit_ = raw_node_->create_publisher<tier4_planning_msgs::msg::VelocityLimit>(
     "/planning/scenario_planning/max_velocity_default", rclcpp::QoS{1}.transient_local());
+
+  set_ndt_covariance_pub_ = raw_node_->create_publisher<std_msgs::msg::Float32>(
+          "/localization/set_ndt_covariance", rclcpp::QoS{1}.transient_local());
+
+  set_gnss_pose_covariance_pub_ = raw_node_->create_publisher<std_msgs::msg::Float32>(
+            "/localization/set_gnss_covariance", rclcpp::QoS{1}.transient_local());
 }
 
 void AutowareStatePanel::onOperationMode(const OperationModeState::ConstSharedPtr msg)
@@ -626,6 +660,19 @@ void AutowareStatePanel::onClickEmergencyButton()
     });
 }
 
+  void AutowareStatePanel::onClickNDTCovariance()
+  {
+      std_msgs::msg::Float32 ndt_covariance_msg;
+      ndt_covariance_msg.data = pub_ndt_covariance_input_->value();
+      set_ndt_covariance_pub_->publish(ndt_covariance_msg);
+  }
+
+  void AutowareStatePanel::onClickGNSSPoseCovariance()
+  {
+      std_msgs::msg::Float32 gnss_pose_covariance_msg;
+      gnss_pose_covariance_msg.data = pub_gnss_pose_covariance_input_->value();
+      set_gnss_pose_covariance_pub_->publish(gnss_pose_covariance_msg);
+  }
 }  // namespace rviz_plugins
 
 #include <pluginlib/class_list_macros.hpp>

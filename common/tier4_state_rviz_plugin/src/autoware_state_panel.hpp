@@ -41,7 +41,8 @@
 #include <tier4_planning_msgs/msg/velocity_limit.hpp>
 
 #include <memory>
-
+#include <QDoubleSpinBox>
+#include <std_msgs/msg/float32.hpp>
 namespace rviz_plugins
 {
 class AutowareStatePanel : public rviz_common::Panel
@@ -75,7 +76,8 @@ public Q_SLOTS:  // NOLINT for Qt
   void onClickAcceptStart();
   void onClickVelocityLimit();
   void onClickEmergencyButton();
-
+  void onClickNDTCovariance();
+  void onClickGNSSPoseCovariance();
 protected:
   // Layout
   QGroupBox * makeOperationModeGroup();
@@ -96,7 +98,8 @@ protected:
   rclcpp::Subscription<tier4_external_api_msgs::msg::Emergency>::SharedPtr sub_emergency_;
 
   rclcpp::Publisher<tier4_planning_msgs::msg::VelocityLimit>::SharedPtr pub_velocity_limit_;
-
+  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr set_ndt_covariance_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr set_gnss_pose_covariance_pub_;
   // Operation Mode
   //// Gate Mode
   QLabel * operation_mode_label_ptr_{nullptr};
@@ -160,9 +163,13 @@ protected:
   // Others
   QPushButton * velocity_limit_button_ptr_;
   QLabel * gear_label_ptr_;
+  QPushButton * set_ndt_covariance_button_ptr_;
+  QPushButton *  set_gnss_pose_covariance_ptr_;
 
   QSpinBox * pub_velocity_limit_input_;
   QPushButton * emergency_button_ptr_;
+  QDoubleSpinBox *  pub_ndt_covariance_input_;
+  QDoubleSpinBox *  pub_gnss_pose_covariance_input_;
 
   bool current_emergency_{false};
 
