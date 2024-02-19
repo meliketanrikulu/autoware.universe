@@ -80,6 +80,11 @@
     </include>
   </group>
 
+  <!-- AW Pose Covariance Modifier Node -->
+  <group>
+    <include file="$(find-pkg-share aw_pose_covariance_modifier_node)/launch/aw_pose_covariance_modifier_node.launch.xml"/>
+  </group>
+
   <!-- Util Launch -->
   <group>
     <push-ros-namespace namespace="util"/>
@@ -113,4 +118,5 @@
       <arg name="input_pointcloud" value="$(var override_input_pointcloud)"/>
     </include>
   </group>
+
 </launch>
