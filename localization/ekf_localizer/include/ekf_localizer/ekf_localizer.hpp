@@ -48,7 +48,7 @@
 #include <queue>
 #include <string>
 #include <vector>
-
+#include "std_msgs/msg/float32.hpp"
 class Simple1DFilter
 {
 public:
@@ -125,7 +125,12 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_biased_pose_cov_;
   //!< @brief diagnostics publisher
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr pub_diag_;
-  //!< @brief initial pose subscriber
+  // DEBUG
+  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_mahalanobis_distance_;
+
+
+
+    //!< @brief initial pose subscriber
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr sub_initialpose_;
   //!< @brief measurement pose with covariance subscriber
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr sub_pose_with_cov_;

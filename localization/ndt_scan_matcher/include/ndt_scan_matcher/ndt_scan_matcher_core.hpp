@@ -150,6 +150,12 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr ndt_pose_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     ndt_pose_with_covariance_pub_;
+  ////////////////////////////////////////////////////////////////////////////////////
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr debug_pose_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
+            debug_pose_with_covariance_pub_;
+  ////////////////////////////////////////////////////////////////////////////////////
+
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     initial_pose_with_covariance_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr multi_ndt_pose_pub_;

@@ -134,6 +134,12 @@ NDTScanMatcher::NDTScanMatcher()
   ndt_pose_with_covariance_pub_ =
     this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
       "ndt_pose_with_covariance", 10);
+  ////////////////////////////////////////////////////////
+  debug_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ndt/debug/pose", 10);
+  debug_pose_with_covariance_pub_ =
+            this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
+                    "/ndt/debug/pose_with_cov_stamped", 10);
+  ////////////////////////////////////////////////////////
   initial_pose_with_covariance_pub_ =
     this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
       "initial_pose_with_covariance", 10);
@@ -147,7 +153,7 @@ NDTScanMatcher::NDTScanMatcher()
     this->create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
       "nearest_voxel_transformation_likelihood", 10);
   no_ground_transform_probability_pub_ =
-    this->create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
+    this->create_publisher<tier4_debug_msgs::msg:: Float32Stamped>(
       "no_ground_transform_probability", 10);
   no_ground_nearest_voxel_transformation_likelihood_pub_ =
     this->create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
@@ -659,6 +665,13 @@ void NDTScanMatcher::publish_pose(
       ndt_pose_with_covariance_pub_->publish(result_pose_with_cov_msg);
     }
   }
+  else{
+      if (is_converged) {
+          ndt_pose_pub_->publish(result_pose_stamped_msg);
+          ndt_pose_with_covariance_pub_->publish(result_pose_with_cov_msg);
+      }
+  }
+
 }
 
 void NDTScanMatcher::publish_point_cloud(

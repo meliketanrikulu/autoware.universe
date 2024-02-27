@@ -66,6 +66,8 @@ EKFLocalizer::EKFLocalizer(const std::string & node_name, const rclcpp::NodeOpti
       std::bind(&EKFLocalizer::timerTFCallback, this));
   }
 
+  pub_mahalanobis_distance_ = create_publisher<std_msgs::msg::Float32>("/ekf/mahalanobis_distance", 10);
+
   pub_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>("ekf_pose", 1);
   pub_pose_cov_ =
     create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("ekf_pose_with_covariance", 1);
@@ -238,6 +240,11 @@ void EKFLocalizer::timerCallback()
 
   /* publish ekf result */
   publishEstimateResult(current_ekf_pose, current_biased_ekf_pose, current_ekf_twist);
+
+//  std::cout<<"111111111111 pose_diag_info_.mahalanobis_distance:    "<<pose_diag_info_.mahalanobis_distance<<std::endl;
+  std_msgs::msg::Float32 data;
+  data.data = pose_diag_info_.mahalanobis_distance;
+  pub_mahalanobis_distance_->publish(data);
   publishDiagnostics(current_time);
 }
 
@@ -404,7 +411,6 @@ void EKFLocalizer::publishDiagnostics(const rclcpp::Time & current_time)
     diag_status_array.push_back(checkMeasurementMahalanobisGate(
       "pose", pose_diag_info_.is_passed_mahalanobis_gate, pose_diag_info_.mahalanobis_distance,
       params_.pose_gate_dist));
-
     diag_status_array.push_back(checkMeasurementUpdated(
       "twist", twist_diag_info_.no_update_count, params_.twist_no_update_count_threshold_warn,
       params_.twist_no_update_count_threshold_error));

@@ -84,6 +84,7 @@ struct HyperParameters
     double lidar_radius;
   } dynamic_map_loading;
 
+  bool enable_aw_pose_covariance_modifier;
 public:
   explicit HyperParameters(rclcpp::Node * node)
   {
@@ -167,6 +168,8 @@ public:
       node->declare_parameter<double>("dynamic_map_loading.map_radius");
     dynamic_map_loading.lidar_radius =
       node->declare_parameter<double>("dynamic_map_loading.lidar_radius");
+
+//    enable_aw_pose_covariance_modifier = node->declare_parameter<bool>("aw_pose_covariance_modifier.enable");
   }
 };
 

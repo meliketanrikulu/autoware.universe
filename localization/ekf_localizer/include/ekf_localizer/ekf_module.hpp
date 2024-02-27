@@ -31,6 +31,7 @@
 
 #include <memory>
 #include <vector>
+#include <std_msgs/msg/detail/float32__struct.hpp>
 
 struct EKFDiagnosticInfo
 {

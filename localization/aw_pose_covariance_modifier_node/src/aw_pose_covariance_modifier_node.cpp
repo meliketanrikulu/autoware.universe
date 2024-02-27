@@ -28,8 +28,8 @@ AWPoseCovarianceModifierNode::AWPoseCovarianceModifierNode() : Node("AWPoseCovar
   new_pose_estimator_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "output_pose_with_covariance_topic", 10);
 
-  client_ =
-    this->create_client<std_srvs::srv::SetBool>("/localization/pose_estimator/covariance_modifier");
+    new_pose_estimator_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("output_pose_with_covariance_topic",10);
+    debug_pose_with_cov_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/aw_pose_covariance_modifier/debug/pose_with_cov_stamped",10);
 
   startNDTCovModifier = AWPoseCovarianceModifierNode::callNDTCovarianceModifier();
   if (startNDTCovModifier == 1) {
@@ -82,8 +82,14 @@ void AWPoseCovarianceModifierNode::trusted_pose_with_cov_callback(
       pose_estimator_pose.pose.covariance[35] = 1000000;
     }
 
-    new_pose_estimator_pub_->publish(pose_estimator_pose);
-  }
+        if (trusted_pose_yaw_rmse_in_degrees_ >= 0.3){
+            pose_estimator_pose.pose.covariance[35] = 1000000;
+        }
+
+        new_pose_estimator_pub_->publish(pose_estimator_pose);
+
+    }
+
 }
 int main(int argc, char * argv[])
 {

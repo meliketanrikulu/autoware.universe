@@ -163,6 +163,7 @@ void GNSSPoser::callbackNavSatFix(
   gnss_base_pose_msg.header.frame_id = map_frame_;
   tf2::toMsg(tf_map2base_link, gnss_base_pose_msg.pose);
 
+  gnss_base_pose_msg.pose.position.z = gnss_base_pose_msg.pose.position.z -0.4;
   // publish gnss_base_link pose in map frame
   pose_pub_->publish(gnss_base_pose_msg);
 
@@ -209,7 +210,7 @@ bool GNSSPoser::isFixed(const sensor_msgs::msg::NavSatStatus & nav_sat_status_ms
 
 bool GNSSPoser::canGetCovariance(const sensor_msgs::msg::NavSatFix & nav_sat_fix_msg)
 {
-  return nav_sat_fix_msg.position_covariance_type >
+  return nav_sat_fix_msg.position_covariance_type ==
          sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_UNKNOWN;
 }
 
