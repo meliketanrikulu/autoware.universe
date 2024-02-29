@@ -35,6 +35,7 @@
 #include <tier4_debug_msgs/msg/int32_stamped.hpp>
 #include <tier4_localization_msgs/srv/pose_with_covariance_stamped.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include "rcl_interfaces/srv/set_parameters.hpp"
 
 #include <fmt/format.h>
 #include <multigrid_pclomp/multigrid_ndt_omp.h>
@@ -83,9 +84,9 @@ private:
   void service_trigger_node(
     const std_srvs::srv::SetBool::Request::SharedPtr req,
     std_srvs::srv::SetBool::Response::SharedPtr res);
-  void activate_pose_covariance_modifier(
-    const std_srvs::srv::SetBool::Request::SharedPtr req,
-    std_srvs::srv::SetBool::Response::SharedPtr res);
+  void setParametersCallback(
+    const rcl_interfaces::srv::SetParameters::Request::SharedPtr request,
+    rcl_interfaces::srv::SetParameters::Response::SharedPtr response);
   void callback_timer();
   void callback_sensor_points(
     sensor_msgs::msg::PointCloud2::ConstSharedPtr sensor_points_msg_in_sensor_frame);
@@ -184,7 +185,7 @@ private:
 
   rclcpp::Service<tier4_localization_msgs::srv::PoseWithCovarianceStamped>::SharedPtr service_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_trigger_node_;
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_covariance_modifier_;
+  rclcpp::Service<rcl_interfaces::srv::SetParameters>::SharedPtr set_parameters_service_;
 
   tf2_ros::TransformBroadcaster tf2_broadcaster_;
   tf2_ros::Buffer tf2_buffer_;
@@ -224,7 +225,7 @@ private:
   // To be used for timeout control
   bool checkTrustedPoseTimeout();
   rclcpp::Time trustedPoseCallbackTime;
-
+    std::shared_ptr<std::mutex> mutex_mt_;
   HyperParameters param_;
 };
 

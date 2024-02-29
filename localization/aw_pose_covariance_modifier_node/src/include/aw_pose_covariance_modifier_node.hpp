@@ -17,10 +17,8 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
-#include <std_srvs/srv/set_bool.hpp>
-
+#include <rcl_interfaces/srv/set_parameters.hpp>
 #include <string>
-
 using namespace std::chrono_literals;
 
 class AWPoseCovarianceModifierNode : public rclcpp::Node
@@ -31,7 +29,7 @@ public:
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr trusted_pose_with_cov_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr new_pose_estimator_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr debug_pose_with_cov_pub_;
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client_;
+  rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr client_;
 
   void trusted_pose_with_cov_callback(
     const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr & msg);
@@ -41,6 +39,7 @@ private:
   double trusted_pose_rmse_;
   double trusted_pose_yaw_rmse_in_degrees_;
   bool startNDTCovModifier = 0;
+
 };
 
 #endif  // AW_POSE_COVARIANCE_MODIFIER_NODE_HPP_

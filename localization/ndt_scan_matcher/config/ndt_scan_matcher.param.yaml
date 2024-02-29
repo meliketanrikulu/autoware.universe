@@ -113,5 +113,5 @@
       # Radius of input LiDAR range (used for diagnostics of dynamic map loading)
       lidar_radius: 100.0
 
-    aw_pose_covariance_modifier:
-      enable: true
+#    aw_pose_covariance_modifier:
+#      enable: false

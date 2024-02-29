@@ -15,6 +15,7 @@
 #include "include/aw_pose_covariance_modifier_node.hpp"
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/qos.hpp>
 
 AWPoseCovarianceModifierNode::AWPoseCovarianceModifierNode() : Node("AWPoseCovarianceModifierNode")
 {
@@ -28,40 +29,76 @@ AWPoseCovarianceModifierNode::AWPoseCovarianceModifierNode() : Node("AWPoseCovar
   new_pose_estimator_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "output_pose_with_covariance_topic", 10);
 
-    new_pose_estimator_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("output_pose_with_covariance_topic",10);
-    debug_pose_with_cov_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/aw_pose_covariance_modifier/debug/pose_with_cov_stamped",10);
+  debug_pose_with_cov_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/aw_pose_covariance_modifier/debug/pose_with_cov_stamped",10);
 
-  startNDTCovModifier = AWPoseCovarianceModifierNode::callNDTCovarianceModifier();
+  client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/localization/pose_estimator/ndt_scan_matcher/set_parameters");
+
+
+
+  while(startNDTCovModifier != true && rclcpp::ok()){
+      startNDTCovModifier = AWPoseCovarianceModifierNode::callNDTCovarianceModifier();
+  }
   if (startNDTCovModifier == 1) {
     RCLCPP_INFO(get_logger(), "NDT pose covariance modifier activated ...");
   }
+  else{
+      startNDTCovModifier = AWPoseCovarianceModifierNode::callNDTCovarianceModifier();
+  }
 }
-
-bool AWPoseCovarianceModifierNode::callNDTCovarianceModifier()
-{
-  while (!client_->wait_for_service(std::chrono::seconds(1))) {
-    if (!rclcpp::ok()) {
-      RCLCPP_ERROR(get_logger(), "Interrupted while waiting for the service. Exiting.");
-      return false;
+std::string futureStatusToString(std::future_status status) {
+    switch (status) {
+        case std::future_status::ready:
+            return "ready";
+        case std::future_status::timeout:
+            return "timeout";
+        case std::future_status::deferred:
+            return "deferred";
+        default:
+            return "unknown";
     }
-    RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
-  }
-
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
-
-  auto future_result = client_->async_send_request(request);
-  if (
-    rclcpp::spin_until_future_complete(get_node_base_interface(), future_result) ==
-    rclcpp::FutureReturnCode::SUCCESS) {
-    auto response = future_result.get();
-    RCLCPP_INFO(get_logger(), "Response: %d", response->success);
-    return true;
-  } else {
-    RCLCPP_ERROR(get_logger(), "Failed to receive response.");
-    return false;
-  }
 }
+bool AWPoseCovarianceModifierNode::callNDTCovarianceModifier() {
+    while (!client_->wait_for_service(std::chrono::seconds(1))) {
+        if (!rclcpp::ok()) {
+            RCLCPP_ERROR(get_logger(), "Interrupted while waiting for the service. Exiting.");
+            return false;
+        }
+        RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
+    }
+
+    auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+
+    rcl_interfaces::msg::Parameter parameter;
+    parameter.name = "aw_pose_covariance_modifier.enable";
+    parameter.value.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+    parameter.value.bool_value = true;
+
+    request->parameters.push_back(parameter);
+
+    auto future_result = client_->async_send_request(request);
+
+    auto result_status = future_result.wait_for(std::chrono::seconds(10));
+    std::string status_str = futureStatusToString(result_status);
+    RCLCPP_INFO(this->get_logger(), "Result Status: %s", status_str.c_str());
+
+        if (result_status == std::future_status::ready) {
+
+            auto response = future_result.get();
+
+            if (response && response->results.data()) {
+                RCLCPP_INFO(this->get_logger(), "Parametreler başarıyla ayarlandı.");
+                return true;
+            } else {
+                RCLCPP_ERROR(this->get_logger(), "Parametre ayarlanırken bir hata oluştu.");
+                return false;
+            }
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "İstek belirtilen süre içinde tamamlanmadı.");
+            return false;
+        }
+
+}
+
 void AWPoseCovarianceModifierNode::trusted_pose_with_cov_callback(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr & msg)
 {
