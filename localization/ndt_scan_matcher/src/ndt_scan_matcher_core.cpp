@@ -190,7 +190,7 @@ NDTScanMatcher::NDTScanMatcher()
     rclcpp::ServicesQoS().get_rmw_qos_profile(), sensor_callback_group);
 
   set_parameters_service_ = this->create_service<rcl_interfaces::srv::SetParameters>(
-        "ndt_scan_matcher/set_parameters",
+        "ndt_scan_matcher/set_parameters_",
         std::bind(
                 &NDTScanMatcher::setParametersCallback, this, std::placeholders::_1, std::placeholders::_2),
         rclcpp::ServicesQoS().get_rmw_qos_profile(), sensor_callback_group);
@@ -213,6 +213,7 @@ void NDTScanMatcher::setParametersCallback(
 {
     std::lock_guard<std::mutex> lock(*mutex_mt_);
     std::cout<<"xdxdxddxddxd"<<std::endl;
+
     for (const auto &param : request->parameters) {
 
         if(param.name  == "aw_pose_covariance_modifier.enable"){
@@ -220,22 +221,13 @@ void NDTScanMatcher::setParametersCallback(
             activate_pose_covariance_modifier_ = param.value.bool_value;
             RCLCPP_INFO(this->get_logger(), "aw_pose_covariance_modifier.enable set to : %d", activate_pose_covariance_modifier_);
 
-//            rcl_interfaces::msg::SetParametersResult result;
-//            result.successful = true;
-//            result.reason = "Parameter successfully set.";
-//
-//            response->results.push_back(result);
-//            std::cout<<"ppppppppp: "<<response->results.data()->successful<<std::endl;
+            rcl_interfaces::msg::SetParametersResult result;
+            result.successful = true;
+            result.reason = "Parameter successfully set.";
 
+            response->results.push_back(result);
         }
     }
-
-    rcl_interfaces::msg::SetParametersResult result;
-    result.successful = true;
-    result.reason = "Parameter successfully set.";
-
-    response->results.push_back(result);
-    std::cout<<"ppppppppp: "<<response->results.data()->successful<<std::endl;
 }
 void NDTScanMatcher::publish_diagnostic()
 {

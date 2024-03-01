@@ -31,72 +31,57 @@ AWPoseCovarianceModifierNode::AWPoseCovarianceModifierNode() : Node("AWPoseCovar
 
   debug_pose_with_cov_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/aw_pose_covariance_modifier/debug/pose_with_cov_stamped",10);
 
-  client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/localization/pose_estimator/ndt_scan_matcher/set_parameters");
+  client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/localization/pose_estimator/ndt_scan_matcher/set_parameters_");
 
-
-
-  while(startNDTCovModifier != true && rclcpp::ok()){
-      startNDTCovModifier = AWPoseCovarianceModifierNode::callNDTCovarianceModifier();
+  while (!client_->wait_for_service(std::chrono::seconds(1)) && rclcpp::ok()) {
+      RCLCPP_DEBUG_THROTTLE(
+              this->get_logger(), *get_clock(), 5000,
+              "Waiting for pcd map loader service. Check if the enable_selected_load in "
+              "pointcloud_map_loader is set `true`.");
   }
+
+  startNDTCovModifier = AWPoseCovarianceModifierNode::callNDTCovarianceModifier();
+
   if (startNDTCovModifier == 1) {
     RCLCPP_INFO(get_logger(), "NDT pose covariance modifier activated ...");
   }
   else{
-      startNDTCovModifier = AWPoseCovarianceModifierNode::callNDTCovarianceModifier();
+    RCLCPP_INFO(get_logger(), "Failed to enable NDT pose covariance modifier ...");
   }
 }
-std::string futureStatusToString(std::future_status status) {
-    switch (status) {
-        case std::future_status::ready:
-            return "ready";
-        case std::future_status::timeout:
-            return "timeout";
-        case std::future_status::deferred:
-            return "deferred";
-        default:
-            return "unknown";
-    }
-}
+
 bool AWPoseCovarianceModifierNode::callNDTCovarianceModifier() {
-    while (!client_->wait_for_service(std::chrono::seconds(1))) {
-        if (!rclcpp::ok()) {
-            RCLCPP_ERROR(get_logger(), "Interrupted while waiting for the service. Exiting.");
-            return false;
-        }
-        RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
-    }
 
-    auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+  auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
 
-    rcl_interfaces::msg::Parameter parameter;
-    parameter.name = "aw_pose_covariance_modifier.enable";
-    parameter.value.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
-    parameter.value.bool_value = true;
+  rcl_interfaces::msg::Parameter parameter;
+  parameter.name = "aw_pose_covariance_modifier.enable";
+  parameter.value.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+  parameter.value.bool_value = true;
 
-    request->parameters.push_back(parameter);
+  request->parameters.push_back(parameter);
 
-    auto future_result = client_->async_send_request(request);
+  client_->async_send_request(
+          request, [this](rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedFuture result_) {
+          auto result_status = result_.wait_for(std::chrono::seconds(1));
 
-    auto result_status = future_result.wait_for(std::chrono::seconds(10));
-    std::string status_str = futureStatusToString(result_status);
-    RCLCPP_INFO(this->get_logger(), "Result Status: %s", status_str.c_str());
+      if (result_status == std::future_status::ready) {
+          auto response = result_.get();
 
-        if (result_status == std::future_status::ready) {
+          if (response && response->results.data()) {
+              RCLCPP_INFO(this->get_logger(), "Parameters set successfully");
+              return true;
+          } else {
+              RCLCPP_ERROR(this->get_logger(), "An error occurred while setting the parameter.");
+              return false;
+          }
+      } else {
+          RCLCPP_ERROR(this->get_logger(), "The request was not completed within the specified time.");
+          return false;
+      }
 
-            auto response = future_result.get();
-
-            if (response && response->results.data()) {
-                RCLCPP_INFO(this->get_logger(), "Parametreler başarıyla ayarlandı.");
-                return true;
-            } else {
-                RCLCPP_ERROR(this->get_logger(), "Parametre ayarlanırken bir hata oluştu.");
-                return false;
-            }
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "İstek belirtilen süre içinde tamamlanmadı.");
-            return false;
-        }
-
+  });
+  return false;
 }
 
 void AWPoseCovarianceModifierNode::trusted_pose_with_cov_callback(
