@@ -140,6 +140,7 @@ private:
   rclcpp::TimerBase::SharedPtr timer_tf_;
   //!< @brief tf broadcaster
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_br_;
+  int my_counter = 0;
 
   //!< @brief logger configure module
   std::unique_ptr<autoware::universe_utils::LoggerLevelConfigure> logger_configure_;

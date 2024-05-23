@@ -114,6 +114,10 @@ NDTScanMatcher::NDTScanMatcher(const rclcpp::NodeOptions & options)
     "ekf_pose_with_covariance", 100,
     std::bind(&NDTScanMatcher::callback_initial_pose, this, std::placeholders::_1),
     initial_pose_sub_opt);
+  ndt_initial_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+  "/localization/pose_estimator/pose_with_covariance", 100,
+  std::bind(&NDTScanMatcher::callback_ndt_initial_pose, this, std::placeholders::_1),
+  initial_pose_sub_opt);
   sensor_points_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "points_raw", rclcpp::SensorDataQoS().keep_last(1),
     std::bind(&NDTScanMatcher::callback_sensor_points, this, std::placeholders::_1),
@@ -198,6 +202,7 @@ NDTScanMatcher::NDTScanMatcher(const rclcpp::NodeOptions & options)
   initial_pose_buffer_ = std::make_unique<SmartPoseBuffer>(
     this->get_logger(), param_.validation.initial_pose_timeout_sec,
     param_.validation.initial_pose_distance_tolerance_m);
+  std::cout<<"param_.validation.initial_pose_timeout_sec :  "<<param_.validation.initial_pose_timeout_sec<<std::endl;
 
   map_update_module_ =
     std::make_unique<MapUpdateModule>(this, &ndt_ptr_mtx_, ndt_ptr_, param_.dynamic_map_loading);
@@ -229,19 +234,44 @@ void NDTScanMatcher::callback_timer()
 void NDTScanMatcher::callback_initial_pose(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr)
 {
-  diagnostics_initial_pose_->clear();
+  if (initial_pose_switch_counter_ < 100) {
+    std::cout<<"reading EKF input"<<std::endl;
 
-  callback_initial_pose_main(initial_pose_msg_ptr);
+    diagnostics_initial_pose_->clear();
 
-  diagnostics_initial_pose_->publish(initial_pose_msg_ptr->header.stamp);
+    callback_initial_pose_main(initial_pose_msg_ptr);
+
+    diagnostics_initial_pose_->publish();
+    initial_pose_switch_counter_++;
+  }else {
+    std::cout<<"NOT reading EKF input"<<std::endl;
+
+  }
+
 }
+void NDTScanMatcher::callback_ndt_initial_pose(
+  const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr initial_pose_msg_ptr)
+{
+    geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr ndt_pose;
+    ndt_pose = initial_pose_msg_ptr;
+    ndt_pose->pose.pose.position.x = ndt_pose->pose.pose.position.x + 0.4;
 
+    std::cout<<"reding NDT input"<<std::endl;
+
+    diagnostics_initial_pose_->clear();
+
+    callback_initial_pose_main(ndt_pose);
+
+    diagnostics_initial_pose_->publish();
+
+
+}
 void NDTScanMatcher::callback_initial_pose_main(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr)
 {
-  diagnostics_initial_pose_->add_key_value(
-    "topic_time_stamp",
-    static_cast<rclcpp::Time>(initial_pose_msg_ptr->header.stamp).nanoseconds());
+  std::cout<<"AAAAAAAAAAAAAAAAAAAAAA"<<std::endl;
+  diagnostics_initial_pose_->addKeyValue(
+    "topic_time_stamp", static_cast<rclcpp::Time>(initial_pose_msg_ptr->header.stamp).seconds());
 
   // check is_activated
   diagnostics_initial_pose_->add_key_value("is_activated", static_cast<bool>(is_activated_));
@@ -268,12 +298,15 @@ void NDTScanMatcher::callback_initial_pose_main(
   }
 
   initial_pose_buffer_->push_back(initial_pose_msg_ptr);
+  initial_pose_buffer_->push_back(initial_pose_msg_ptr);
 
   {
     // latest_ekf_position_ is also used by callback_timer, so it is necessary to acquire the lock
     std::lock_guard<std::mutex> lock(latest_ekf_position_mtx_);
     latest_ekf_position_ = initial_pose_msg_ptr->pose.pose.position;
   }
+  std::cout<<"xxxxxxxxxxxxxxxxxxxxxx"<<std::endl;
+
 }
 
 void NDTScanMatcher::callback_regularization_pose(
@@ -429,7 +462,7 @@ bool NDTScanMatcher::callback_sensor_points_main(
       diagnostic_msgs::msg::DiagnosticStatus::WARN, message.str());
     return false;
   }
-
+  std::cout<<"SUCCESSS"<<std::endl;
   initial_pose_buffer_->pop_old(sensor_ros_time);
   const SmartPoseBuffer::InterpolateResult & interpolation_result =
     interpolation_result_opt.value();
@@ -686,7 +719,7 @@ void NDTScanMatcher::publish_tf(
   result_pose_stamped_msg.header.frame_id = param_.frame.map_frame;
   result_pose_stamped_msg.pose = result_pose_msg;
   tf2_broadcaster_.sendTransform(
-    autoware::universe_utils::pose2transform(result_pose_stamped_msg, param_.frame.ndt_base_frame));
+    tier4_autoware_utils::pose2transform(result_pose_stamped_msg, param_.frame.base_frame));
 }
 
 void NDTScanMatcher::publish_pose(

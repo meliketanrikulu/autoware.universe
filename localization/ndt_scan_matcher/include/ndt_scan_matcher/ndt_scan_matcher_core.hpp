@@ -83,6 +83,8 @@ private:
 
   void callback_initial_pose(
     geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr);
+  void callback_ndt_initial_pose(
+    geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr initial_pose_msg_ptr);
   void callback_initial_pose_main(
     const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr);
 
@@ -139,6 +141,7 @@ private:
 
   rclcpp::TimerBase::SharedPtr map_update_timer_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr ndt_initial_pose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sensor_points_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     regularization_pose_sub_;
@@ -206,6 +209,8 @@ private:
   std::unique_ptr<autoware::universe_utils::LoggerLevelConfigure> logger_configure_;
 
   HyperParameters param_;
+
+  int initial_pose_switch_counter_ = 0;
 };
 
 #endif  // NDT_SCAN_MATCHER__NDT_SCAN_MATCHER_CORE_HPP_

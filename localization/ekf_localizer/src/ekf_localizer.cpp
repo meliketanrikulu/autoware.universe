@@ -267,7 +267,10 @@ void EKFLocalizer::timer_tf_callback()
   transform_stamped = autoware::universe_utils::pose2transform(
     ekf_module_->get_current_pose(current_time, z, roll, pitch, false), "base_link");
   transform_stamped.header.stamp = current_time;
-  tf_br_->sendTransform(transform_stamped);
+  if(my_counter < 10) {
+    tf_br_->sendTransform(transform_stamped);
+    my_counter++;
+  }
 }
 
 /*

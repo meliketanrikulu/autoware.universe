@@ -31,6 +31,7 @@ std::optional<SmartPoseBuffer::InterpolateResult> SmartPoseBuffer::interpolate(
   {
     std::lock_guard<std::mutex> lock(mutex_);
 
+    std::cout<<"BUFFER SIZE : "<<pose_buffer_.size()<<std::endl;
     if (pose_buffer_.size() < 2) {
       RCLCPP_INFO(logger_, "pose_buffer_.size() < 2");
       return std::nullopt;
