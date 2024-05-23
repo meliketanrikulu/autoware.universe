@@ -254,7 +254,7 @@ void NDTScanMatcher::callback_ndt_initial_pose(
 {
     geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr ndt_pose;
     ndt_pose = initial_pose_msg_ptr;
-    ndt_pose->pose.pose.position.x = ndt_pose->pose.pose.position.x + 0.4;
+    // ndt_pose->pose.pose.position.x = ndt_pose->pose.pose.position.x + 0.4;
 
     std::cout<<"reding NDT input"<<std::endl;
 
