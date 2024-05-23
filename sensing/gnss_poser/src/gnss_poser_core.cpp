@@ -193,7 +193,7 @@ void GNSSPoser::callbackNavSatFix(
   pose_cov_pub_->publish(gnss_base_pose_cov_msg);
 
   // broadcast map to gnss_base_link
-  publishTF(map_frame_, gnss_base_frame_, gnss_base_pose_msg);
+  publishTF(map_frame_, "base_link", gnss_base_pose_msg);
 }
 
 void GNSSPoser::callbackGnssInsOrientationStamped(

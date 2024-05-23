@@ -264,7 +264,7 @@ void EKFLocalizer::timerTFCallback()
   transform_stamped = tier4_autoware_utils::pose2transform(
     ekf_module_->getCurrentPose(current_time, z, roll, pitch, false), "base_link");
   transform_stamped.header.stamp = current_time;
-  tf_br_->sendTransform(transform_stamped);
+  //tf_br_->sendTransform(transform_stamped);
 }
 
 /*
