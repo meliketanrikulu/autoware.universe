@@ -33,7 +33,7 @@
 #include <queue>
 #include <string>
 #include <utility>
-
+#include <sensor_msgs/msg/imu.hpp>
 // clang-format off
 #define PRINT_MAT(X) std::cout << #X << ":\n" << X << std::endl << std::endl // NOLINT
 #define DEBUG_INFO(...) {if (params_.show_debug_info) {RCLCPP_INFO(__VA_ARGS__);}} // NOLINT
@@ -87,6 +87,9 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
   sub_twist_with_cov_ = create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
     "in_twist_with_covariance", 1,
     std::bind(&EKFLocalizer::callback_twist_with_covariance, this, _1));
+  sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
+  "/sensing/gnss/sbg/ros/imu/data", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
+
   service_trigger_node_ = create_service<std_srvs::srv::SetBool>(
     "trigger_node_srv",
     std::bind(
@@ -231,12 +234,17 @@ void EKFLocalizer::timer_callback()
   twist_diag_info_.no_update_count = twist_is_updated ? 0 : (twist_diag_info_.no_update_count + 1);
 
   const double z = z_filter_.get_x();
-  const double roll = roll_filter_.get_x();
-  const double pitch = pitch_filter_.get_x();
-  const geometry_msgs::msg::PoseStamped current_ekf_pose =
-    ekf_module_->get_current_pose(current_time, z, roll, pitch, false);
-  const geometry_msgs::msg::PoseStamped current_biased_ekf_pose =
-    ekf_module_->get_current_pose(current_time, z, roll, pitch, true);
+  // const double roll = roll_filter_.get_x();
+  // const double pitch = pitch_filter_.get_x();
+  // read imu_queue_
+
+  const auto rpy = tier4_autoware_utils::getRPY(imu_data_.orientation);
+
+
+  geometry_msgs::msg::PoseStamped current_ekf_pose =
+    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false);
+  geometry_msgs::msg::PoseStamped current_biased_ekf_pose =
+    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, true);
   const geometry_msgs::msg::TwistStamped current_ekf_twist =
     ekf_module_->get_current_twist(current_time);
 
@@ -259,14 +267,16 @@ void EKFLocalizer::timer_tf_callback()
   }
 
   const double z = z_filter_.get_x();
-  const double roll = roll_filter_.get_x();
-  const double pitch = pitch_filter_.get_x();
+  // const double roll = roll_filter_.get_x();
+  // const double pitch = pitch_filter_.get_x();
 
   const rclcpp::Time current_time = this->now();
 
+  const auto rpy = tier4_autoware_utils::getRPY(imu_data_.orientation);
+
   geometry_msgs::msg::TransformStamped transform_stamped;
   transform_stamped = autoware::universe_utils::pose2transform(
-    ekf_module_->get_current_pose(current_time, z, roll, pitch, false), "base_link");
+    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false), "base_link");
   transform_stamped.header.stamp = current_time;
   tf_br_->sendTransform(transform_stamped);
 }
@@ -339,7 +349,11 @@ void EKFLocalizer::callback_twist_with_covariance(
   }
   twist_queue_.push(msg);
 }
-
+void EKFLocalizer::callbackImu(
+  sensor_msgs::msg::Imu::SharedPtr msg)
+{
+  imu_data_ = *msg;
+}
 /*
  * publish_estimate_result
  */
@@ -348,6 +362,21 @@ void EKFLocalizer::publish_estimate_result(
   const geometry_msgs::msg::PoseStamped & current_biased_ekf_pose,
   const geometry_msgs::msg::TwistStamped & current_ekf_twist)
 {
+
+  // const auto rpy = tier4_autoware_utils::getRPY(current_ekf_pose.pose.orientation);
+  // Eigen::Quaterniond q;
+  // q = Eigen::AngleAxisd(rpy.x, Eigen::Vector3d::UnitX())
+  //     * Eigen::AngleAxisd(rpy.y, Eigen::Vector3d::UnitY())
+  //     * Eigen::AngleAxisd(tier4_autoware_utils::getRPY(current_ekf_pose.pose.orientation).z, Eigen::Vector3d::UnitZ());
+  // current_ekf_pose.pose.orientation.x = q.x();
+  // current_ekf_pose.pose.orientation.y = q.y();
+  // current_ekf_pose.pose.orientation.z = q.z();
+  // current_ekf_pose.pose.orientation.w = q.w();
+  //
+  // current_biased_ekf_pose.pose.orientation.x = q.x();
+  // current_biased_ekf_pose.pose.orientation.y = q.y();
+  // current_biased_ekf_pose.pose.orientation.z = q.z();
+  // current_biased_ekf_pose.pose.orientation.w = q.w();
   /* publish latest pose */
   pub_pose_->publish(current_ekf_pose);
   pub_biased_pose_->publish(current_biased_ekf_pose);

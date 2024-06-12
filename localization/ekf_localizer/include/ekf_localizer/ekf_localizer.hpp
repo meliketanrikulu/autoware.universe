@@ -48,6 +48,12 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <sensor_msgs/msg/detail/camera_info__builder.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+// include tier4_autoware_utils:: getQuaternionFromRPY
+#include <tier4_autoware_utils/geometry/geometry.hpp>
+#include <Eigen/Geometry>
+
 
 class Simple1DFilter
 {
@@ -129,6 +135,8 @@ private:
   //!< @brief measurement twist with covariance subscriber
   rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr
     sub_twist_with_cov_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr    sub_imu_;
+
   //!< @brief time for ekf calculation callback
   rclcpp::TimerBase::SharedPtr timer_control_;
   //!< @brief last predict time
@@ -188,6 +196,8 @@ private:
   void callback_twist_with_covariance(
     geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg);
 
+  void callbackImu(sensor_msgs::msg::Imu::SharedPtr msg);
+    sensor_msgs::msg::Imu imu_data_;
   /**
    * @brief set initial_pose to current EKF pose
    */
