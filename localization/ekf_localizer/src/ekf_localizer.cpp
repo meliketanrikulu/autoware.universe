@@ -91,7 +91,7 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
     "in_twist_with_covariance", 1, std::bind(&EKFLocalizer::callbackTwistWithCovariance, this, _1));
 
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
-  "/sensing/imu/tamagawa/imu_raw", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
+  "/sensing/gnss/sbg/ros/imu/data", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
 
   service_trigger_node_ = create_service<std_srvs::srv::SetBool>(
     "trigger_node_srv",
@@ -245,21 +245,65 @@ void EKFLocalizer::timer_callback()
   // const double roll = roll_filter_.get_x();
   // const double pitch = pitch_filter_.get_x();
   // read imu_queue_
+  if (!imu_msg_queue_.empty()) {
+    sensor_msgs::msg::Imu closest_imu_msg;
+    bool found = findClosestImuMsg(closest_imu_msg);
+    std::cout<<"found: "<<found<<std::endl;
+    if (found) {
+      const auto rpy = tier4_autoware_utils::getRPY(closest_imu_msg.orientation);
 
-  const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
+      geometry_msgs::msg::PoseStamped current_ekf_pose =
+        ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false);
+      geometry_msgs::msg::PoseStamped current_biased_ekf_pose =
+        ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, true);
+      const geometry_msgs::msg::TwistStamped current_ekf_twist =
+        ekf_module_->getCurrentTwist(current_time);
 
-  geometry_msgs::msg::PoseStamped current_ekf_pose =
-    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false);
-  geometry_msgs::msg::PoseStamped current_biased_ekf_pose =
-    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, true);
-  const geometry_msgs::msg::TwistStamped current_ekf_twist =
-    ekf_module_->get_current_twist(current_time);
+      /* publish ekf result */
+      publishEstimateResult(current_ekf_pose, current_biased_ekf_pose, current_ekf_twist);
+      publishDiagnostics(current_time);
+    }
 
-  /* publish ekf result */
-  publish_estimate_result(current_ekf_pose, current_biased_ekf_pose, current_ekf_twist);
-  publish_diagnostics(current_ekf_pose, current_time);
+
+  }
+
+
+
 }
+bool EKFLocalizer::findClosestImuMsg(sensor_msgs::msg::Imu & closest_imu_msg)
+{
+  std::cout<<"000000000000000000"<<std::endl;
+  std::vector<sensor_msgs::msg::Imu> imu_msg_vector;
+  while (!imu_msg_queue_.empty()) {
+    imu_msg_vector.push_back(imu_msg_queue_.front());
+    imu_msg_queue_.pop();
+  }
 
+  std::cout<<"11111111111111111"<<std::endl;
+
+  bool found = false;
+  rclcpp::Time closest_time;
+
+  for (const auto& imu_msg : imu_msg_vector) {
+    rclcpp::Time imu_time = imu_msg.header.stamp;
+    std::cout<<"2222222222222 imu_time.get_clock_type() "<<imu_time.get_clock_type()<<std::endl;
+    std::cout<<"2222222222222 pose_time.get_clock_type() "<<pose_time.get_clock_type()<<std::endl;
+
+    // Check if the IMU message time is older than or equal to the current pose time
+    if (imu_time <= pose_time) {
+      std::cout<<"33333333333333"<<std::endl;
+      if (!found || (pose_time - imu_time < pose_time - closest_time)) {
+        std::cout<<"44444444444"<<std::endl;
+
+        closest_imu_msg = imu_msg;
+        closest_time = imu_time;
+        found = true;
+      }
+    }
+  }
+
+  return found;
+}
 /*
  * timer_tf_callback
  */
@@ -279,13 +323,21 @@ void EKFLocalizer::timer_tf_callback()
 
   const rclcpp::Time current_time = this->now();
 
-  const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
+  if (!imu_msg_queue_.empty()) {
+    sensor_msgs::msg::Imu closest_imu_msg;
+    bool found = findClosestImuMsg(closest_imu_msg);
+    if (found) {
+      const auto rpy = tier4_autoware_utils::getRPY(closest_imu_msg.orientation);
 
-  geometry_msgs::msg::TransformStamped transform_stamped;
-  transform_stamped = tier4_autoware_utils::pose2transform(
-    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false), "base_link");
-  transform_stamped.header.stamp = current_time;
-  tf_br_->sendTransform(transform_stamped);
+      geometry_msgs::msg::TransformStamped transform_stamped;
+      transform_stamped = tier4_autoware_utils::pose2transform(
+        ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false), "base_link");
+      transform_stamped.header.stamp = current_time;
+      tf_br_->sendTransform(transform_stamped);
+    }
+
+  }
+
 }
 
 /*
@@ -341,6 +393,7 @@ void EKFLocalizer::callback_pose_with_covariance(
   }
 
   pose_queue_.push(msg);
+  pose_time = msg->header.stamp;
 }
 
 /*
@@ -369,63 +422,61 @@ void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
     }
 
     // Zaman farkını hesapla
-    double delta_t = (curr_time - prev_time_).seconds();
-    prev_time_ = curr_time;
+    // double delta_t = (curr_time - prev_time_).seconds();
+    // prev_time_ = curr_time;
 
     // Zaman farkını yazdır (isteğe bağlı, sadece debug amaçlı)
-    std::cout << "delta_t: " << delta_t << std::endl;
+    // std::cout << "delta_t: " << delta_t << std::endl;
 
     // IMU mesajını kopyala
     sensor_msgs::msg::Imu imu_data = *msg;
 
     // Roll, pitch ve yaw değerlerini güncelle
-    roll -= imu_data.angular_velocity.x * delta_t;
-    pitch += imu_data.angular_velocity.y * delta_t;
-    yaw -= imu_data.angular_velocity.z * delta_t;
-
-    // Roll, pitch, yaw değerlerini kullanarak quaternion oluştur
-    tf2::Quaternion q;
-    q.setRPY(roll, pitch, yaw);
-
-    // Quaternion'u IMU mesajının orientation kısmına ata
-    imu_data.orientation = tf2::toMsg(q);
+    // roll += imu_data.angular_velocity.x * delta_t;
+    // pitch += imu_data.angular_velocity.y * delta_t;
+    // yaw += imu_data.angular_velocity.z * delta_t;
+    //
+    // // Roll, pitch, yaw değerlerini kullanarak quaternion oluştur
+    // tf2::Quaternion q;
+    // q.setRPY(roll, pitch, yaw);
+    //
+    // // Quaternion'u IMU mesajının orientation kısmına ata
+    // imu_data.orientation = tf2::toMsg(q);
 
     // TransformStamped mesajını al (base_link ve imu_link arasındaki dönüşüm)
-    // geometry_msgs::msg::TransformStamped imu2_base_link_transform_stamped;
-    // try {
-    //     imu2_base_link_transform_stamped = tf_buffer_->lookupTransform("base_link", "tamagawa/imu_link", tf2::TimePointZero);
-    //    // print transform stamed
-    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.x: "<<imu2_base_link_transform_stamped.transform.rotation.x<<std::endl;
-    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.y: "<<imu2_base_link_transform_stamped.transform.rotation.y<<std::endl;
-    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.z: "<<imu2_base_link_transform_stamped.transform.rotation.z<<std::endl;
-    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.w: "<<imu2_base_link_transform_stamped.transform.rotation.w<<std::endl;
-    //
-    // } catch (tf2::TransformException &ex) {
-    //     RCLCPP_WARN(this->get_logger(), "Transform hatası: %s", ex.what());
-    //     return;
-    // }
+    geometry_msgs::msg::TransformStamped imu2_base_link_transform_stamped;
+    try {
+        imu2_base_link_transform_stamped = tf_buffer_->lookupTransform("base_link", "GNSS_INS/gnss_ins_link", tf2::TimePointZero);
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Transform hatası: %s", ex.what());
+        return;
+    }
 
     // IMU mesajının orientation kısmını tf2::Quaternion'a dönüştür
-    // tf2::Quaternion imu_quat;
-    // tf2::fromMsg(imu_data.orientation, imu_quat);
-    //
-    // // Transformasyonu al ve IMU'nun orientation kısmını dönüştür
-    // tf2::Quaternion transformed_quat = tf2::Transform(tf2::Quaternion(
-    //     imu2_base_link_transform_stamped.transform.rotation.x,
-    //     imu2_base_link_transform_stamped.transform.rotation.y,
-    //     imu2_base_link_transform_stamped.transform.rotation.z,
-    //     imu2_base_link_transform_stamped.transform.rotation.w
-    // )) * imu_quat;
+    tf2::Quaternion imu_quat;
+    tf2::fromMsg(imu_data.orientation, imu_quat);
+
+    // Transformasyonu al ve IMU'nun orientation kısmını dönüştür
+    tf2::Quaternion transformed_quat = tf2::Transform(tf2::Quaternion(
+        imu2_base_link_transform_stamped.transform.rotation.x,
+        imu2_base_link_transform_stamped.transform.rotation.y,
+        imu2_base_link_transform_stamped.transform.rotation.z,
+        imu2_base_link_transform_stamped.transform.rotation.w
+    )) * imu_quat;
 
     // Yeni orientation'ı IMU mesajına geri dönüştür
-    // geometry_msgs::msg::Quaternion new_orientation = tf2::toMsg(transformed_quat);
+    geometry_msgs::msg::Quaternion new_orientation = tf2::toMsg(transformed_quat);
 
     // Yeni orientation'ı kullanarak IMU mesajını güncelle
+    sensor_msgs::msg::Imu new_imu_msg;
     new_imu_msg = imu_data;
-    // new_imu_msg.orientation = new_orientation;
+    new_imu_msg.orientation = new_orientation;
+    imu_msg_queue_.push(new_imu_msg);
 
-    // Burada yeni IMU mesajını başka bir yere yayınlayabilir veya işleyebilirsiniz
-    // Örneğin: imu_pub_->publish(new_imu_msg);
+    while (imu_msg_queue_.size() > 10) {
+      imu_msg_queue_.pop();
+    }
+
 }
 
 /*

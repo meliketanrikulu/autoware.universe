@@ -198,7 +198,11 @@ private:
   void callbackTwistWithCovariance(geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg);
   void callbackImu(sensor_msgs::msg::Imu::SharedPtr msg);
   // sensor_msgs::msg::Imu imu_data_;
-  sensor_msgs::msg::Imu new_imu_msg;
+
+
+  std::queue<sensor_msgs::msg::Imu> imu_msg_queue_;
+  rclcpp::Time pose_time;
+  bool findClosestImuMsg(sensor_msgs::msg::Imu & imu_msg);
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
