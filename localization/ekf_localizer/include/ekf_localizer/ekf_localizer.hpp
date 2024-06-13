@@ -201,8 +201,8 @@ private:
 
 
   std::queue<sensor_msgs::msg::Imu> imu_msg_queue_;
-  rclcpp::Time pose_time;
-  bool findClosestImuMsg(sensor_msgs::msg::Imu & imu_msg);
+  // rclcpp::Time pose_time;
+  // bool findClosestImuMsg(std::queue<sensor_msgs::msg::Imu> & imu_queue);
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

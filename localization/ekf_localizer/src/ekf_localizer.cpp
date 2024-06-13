@@ -246,11 +246,9 @@ void EKFLocalizer::timer_callback()
   // const double pitch = pitch_filter_.get_x();
   // read imu_queue_
   if (!imu_msg_queue_.empty()) {
-    sensor_msgs::msg::Imu closest_imu_msg;
-    bool found = findClosestImuMsg(closest_imu_msg);
-    std::cout<<"found: "<<found<<std::endl;
-    if (found) {
-      const auto rpy = tier4_autoware_utils::getRPY(closest_imu_msg.orientation);
+
+      sensor_msgs::msg::Imu new_imu_msg = imu_msg_queue_.front();
+      const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
 
       geometry_msgs::msg::PoseStamped current_ekf_pose =
         ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false);
@@ -262,7 +260,7 @@ void EKFLocalizer::timer_callback()
       /* publish ekf result */
       publishEstimateResult(current_ekf_pose, current_biased_ekf_pose, current_ekf_twist);
       publishDiagnostics(current_time);
-    }
+
 
 
   }
@@ -270,40 +268,7 @@ void EKFLocalizer::timer_callback()
 
 
 }
-bool EKFLocalizer::findClosestImuMsg(sensor_msgs::msg::Imu & closest_imu_msg)
-{
-  std::cout<<"000000000000000000"<<std::endl;
-  std::vector<sensor_msgs::msg::Imu> imu_msg_vector;
-  while (!imu_msg_queue_.empty()) {
-    imu_msg_vector.push_back(imu_msg_queue_.front());
-    imu_msg_queue_.pop();
-  }
 
-  std::cout<<"11111111111111111"<<std::endl;
-
-  bool found = false;
-  rclcpp::Time closest_time;
-
-  for (const auto& imu_msg : imu_msg_vector) {
-    rclcpp::Time imu_time = imu_msg.header.stamp;
-    std::cout<<"2222222222222 imu_time.get_clock_type() "<<imu_time.get_clock_type()<<std::endl;
-    std::cout<<"2222222222222 pose_time.get_clock_type() "<<pose_time.get_clock_type()<<std::endl;
-
-    // Check if the IMU message time is older than or equal to the current pose time
-    if (imu_time <= pose_time) {
-      std::cout<<"33333333333333"<<std::endl;
-      if (!found || (pose_time - imu_time < pose_time - closest_time)) {
-        std::cout<<"44444444444"<<std::endl;
-
-        closest_imu_msg = imu_msg;
-        closest_time = imu_time;
-        found = true;
-      }
-    }
-  }
-
-  return found;
-}
 /*
  * timer_tf_callback
  */
@@ -324,18 +289,16 @@ void EKFLocalizer::timer_tf_callback()
   const rclcpp::Time current_time = this->now();
 
   if (!imu_msg_queue_.empty()) {
-    sensor_msgs::msg::Imu closest_imu_msg;
-    bool found = findClosestImuMsg(closest_imu_msg);
-    if (found) {
-      const auto rpy = tier4_autoware_utils::getRPY(closest_imu_msg.orientation);
+    // size_t queue_size = imu_msg_queue_.size();
+    sensor_msgs::msg::Imu new_imu_msg = imu_msg_queue_.front();
 
-      geometry_msgs::msg::TransformStamped transform_stamped;
-      transform_stamped = tier4_autoware_utils::pose2transform(
-        ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false), "base_link");
-      transform_stamped.header.stamp = current_time;
-      tf_br_->sendTransform(transform_stamped);
-    }
+    const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
 
+    geometry_msgs::msg::TransformStamped transform_stamped;
+    transform_stamped = tier4_autoware_utils::pose2transform(
+      ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false), "base_link");
+    transform_stamped.header.stamp = current_time;
+    tf_br_->sendTransform(transform_stamped);
   }
 
 }
@@ -393,7 +356,6 @@ void EKFLocalizer::callback_pose_with_covariance(
   }
 
   pose_queue_.push(msg);
-  pose_time = msg->header.stamp;
 }
 
 /*
