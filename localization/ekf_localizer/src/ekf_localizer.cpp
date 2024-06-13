@@ -34,6 +34,9 @@
 #include <string>
 #include <utility>
 #include <sensor_msgs/msg/imu.hpp>
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+
 // clang-format off
 #define PRINT_MAT(X) std::cout << #X << ":\n" << X << std::endl << std::endl // NOLINT
 #define DEBUG_INFO(...) {if (params_.show_debug_info) {RCLCPP_INFO(__VA_ARGS__);}} // NOLINT
@@ -88,7 +91,7 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
     "in_twist_with_covariance", 1,
     std::bind(&EKFLocalizer::callback_twist_with_covariance, this, _1));
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
-  "/sensing/gnss/sbg/ros/imu/data", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
+  "/sensing/imu/tamagawa/imu_raw", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
 
   service_trigger_node_ = create_service<std_srvs::srv::SetBool>(
     "trigger_node_srv",
@@ -105,7 +108,12 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
   z_filter_.set_proc_dev(params_.z_filter_proc_dev);
   roll_filter_.set_proc_dev(params_.roll_filter_proc_dev);
   pitch_filter_.set_proc_dev(params_.pitch_filter_proc_dev);
+
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
 }
+
 
 /*
  * update_predict_frequency
@@ -238,8 +246,7 @@ void EKFLocalizer::timer_callback()
   // const double pitch = pitch_filter_.get_x();
   // read imu_queue_
 
-  const auto rpy = tier4_autoware_utils::getRPY(imu_data_.orientation);
-
+  const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
 
   geometry_msgs::msg::PoseStamped current_ekf_pose =
     ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false);
@@ -272,7 +279,7 @@ void EKFLocalizer::timer_tf_callback()
 
   const rclcpp::Time current_time = this->now();
 
-  const auto rpy = tier4_autoware_utils::getRPY(imu_data_.orientation);
+  const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
 
   geometry_msgs::msg::TransformStamped transform_stamped;
   transform_stamped = autoware::universe_utils::pose2transform(
@@ -349,11 +356,78 @@ void EKFLocalizer::callback_twist_with_covariance(
   }
   twist_queue_.push(msg);
 }
-void EKFLocalizer::callbackImu(
-  sensor_msgs::msg::Imu::SharedPtr msg)
+void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
 {
-  imu_data_ = *msg;
+    // IMU mesajının zaman damgasını al
+    rclcpp::Time curr_time = msg->header.stamp;
+
+    // İlk çağrıda zaman damgasını sakla ve geri dön
+    if (imu_counter == 0) {
+        prev_time_ = curr_time;
+        imu_counter = 1;
+        return;
+    }
+
+    // Zaman farkını hesapla
+    double delta_t = (curr_time - prev_time_).seconds();
+    prev_time_ = curr_time;
+
+    // Zaman farkını yazdır (isteğe bağlı, sadece debug amaçlı)
+    std::cout << "delta_t: " << delta_t << std::endl;
+
+    // IMU mesajını kopyala
+    sensor_msgs::msg::Imu imu_data = *msg;
+
+    // Roll, pitch ve yaw değerlerini güncelle
+    roll -= imu_data.angular_velocity.x * delta_t;
+    pitch += imu_data.angular_velocity.y * delta_t;
+    yaw -= imu_data.angular_velocity.z * delta_t;
+
+    // Roll, pitch, yaw değerlerini kullanarak quaternion oluştur
+    tf2::Quaternion q;
+    q.setRPY(roll, pitch, yaw);
+
+    // Quaternion'u IMU mesajının orientation kısmına ata
+    imu_data.orientation = tf2::toMsg(q);
+
+    // TransformStamped mesajını al (base_link ve imu_link arasındaki dönüşüm)
+    // geometry_msgs::msg::TransformStamped imu2_base_link_transform_stamped;
+    // try {
+    //     imu2_base_link_transform_stamped = tf_buffer_->lookupTransform("base_link", "tamagawa/imu_link", tf2::TimePointZero);
+    //    // print transform stamed
+    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.x: "<<imu2_base_link_transform_stamped.transform.rotation.x<<std::endl;
+    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.y: "<<imu2_base_link_transform_stamped.transform.rotation.y<<std::endl;
+    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.z: "<<imu2_base_link_transform_stamped.transform.rotation.z<<std::endl;
+    //   std::cout<<"imu2_base_link_transform_stamped.transform.rotation.w: "<<imu2_base_link_transform_stamped.transform.rotation.w<<std::endl;
+    //
+    // } catch (tf2::TransformException &ex) {
+    //     RCLCPP_WARN(this->get_logger(), "Transform hatası: %s", ex.what());
+    //     return;
+    // }
+
+    // IMU mesajının orientation kısmını tf2::Quaternion'a dönüştür
+    // tf2::Quaternion imu_quat;
+    // tf2::fromMsg(imu_data.orientation, imu_quat);
+    //
+    // // Transformasyonu al ve IMU'nun orientation kısmını dönüştür
+    // tf2::Quaternion transformed_quat = tf2::Transform(tf2::Quaternion(
+    //     imu2_base_link_transform_stamped.transform.rotation.x,
+    //     imu2_base_link_transform_stamped.transform.rotation.y,
+    //     imu2_base_link_transform_stamped.transform.rotation.z,
+    //     imu2_base_link_transform_stamped.transform.rotation.w
+    // )) * imu_quat;
+
+    // Yeni orientation'ı IMU mesajına geri dönüştür
+    // geometry_msgs::msg::Quaternion new_orientation = tf2::toMsg(transformed_quat);
+
+    // Yeni orientation'ı kullanarak IMU mesajını güncelle
+    new_imu_msg = imu_data;
+    // new_imu_msg.orientation = new_orientation;
+
+    // Burada yeni IMU mesajını başka bir yere yayınlayabilir veya işleyebilirsiniz
+    // Örneğin: imu_pub_->publish(new_imu_msg);
 }
+
 /*
  * publish_estimate_result
  */
@@ -362,21 +436,6 @@ void EKFLocalizer::publish_estimate_result(
   const geometry_msgs::msg::PoseStamped & current_biased_ekf_pose,
   const geometry_msgs::msg::TwistStamped & current_ekf_twist)
 {
-
-  // const auto rpy = tier4_autoware_utils::getRPY(current_ekf_pose.pose.orientation);
-  // Eigen::Quaterniond q;
-  // q = Eigen::AngleAxisd(rpy.x, Eigen::Vector3d::UnitX())
-  //     * Eigen::AngleAxisd(rpy.y, Eigen::Vector3d::UnitY())
-  //     * Eigen::AngleAxisd(tier4_autoware_utils::getRPY(current_ekf_pose.pose.orientation).z, Eigen::Vector3d::UnitZ());
-  // current_ekf_pose.pose.orientation.x = q.x();
-  // current_ekf_pose.pose.orientation.y = q.y();
-  // current_ekf_pose.pose.orientation.z = q.z();
-  // current_ekf_pose.pose.orientation.w = q.w();
-  //
-  // current_biased_ekf_pose.pose.orientation.x = q.x();
-  // current_biased_ekf_pose.pose.orientation.y = q.y();
-  // current_biased_ekf_pose.pose.orientation.z = q.z();
-  // current_biased_ekf_pose.pose.orientation.w = q.w();
   /* publish latest pose */
   pub_pose_->publish(current_ekf_pose);
   pub_biased_pose_->publish(current_biased_ekf_pose);
