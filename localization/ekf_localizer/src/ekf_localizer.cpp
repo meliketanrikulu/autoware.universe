@@ -155,6 +155,8 @@ void EKFLocalizer::update_predict_frequency(const rclcpp::Time & current_time)
  */
 void EKFLocalizer::timer_callback()
 {
+  // pose_time_ = this->now();
+
   const rclcpp::Time current_time = this->now();
 
   if (!is_activated_) {
@@ -200,9 +202,11 @@ void EKFLocalizer::timer_callback()
 
         // Update Simple 1D filter with considering change of z value due to measurement pose delay
         const double delay_time =
-          (current_time - pose->header.stamp).seconds() + params_.pose_additional_delay;
-        const auto pose_with_z_delay = ekf_module_->compensate_pose_with_z_delay(*pose, delay_time);
-        update_simple_1d_filters(pose_with_z_delay, params_.pose_smoothing_steps);
+          (t_curr - pose->header.stamp).seconds() + params_.pose_additional_delay;
+        std::cout<<"delay_time: "<<delay_time<<std::endl;
+        delay_pose_time_ = delay_time;
+        const auto pose_with_z_delay = ekf_module_->compensatePoseWithZDelay(*pose, delay_time);
+        updateSimple1DFilters(pose_with_z_delay, params_.pose_smoothing_steps);
       }
     }
     DEBUG_INFO(
@@ -244,10 +248,20 @@ void EKFLocalizer::timer_callback()
   const double z = z_filter_.get_x();
   // const double roll = roll_filter_.get_x();
   // const double pitch = pitch_filter_.get_x();
-  // read imu_queue_
-  if (!imu_msg_queue_.empty()) {
 
-      sensor_msgs::msg::Imu new_imu_msg = imu_msg_queue_.front();
+
+  if (!imu_msg_deque_.empty()) {
+      sensor_msgs::msg::Imu imu_data = imu_msg_deque_.front();
+      // IMU mesajının zaman damgasını al ve nanosec cinsinden yazdır
+      double delta_t = (toNanoSeconds(current_time) - toNanoSeconds(imu_data.header.stamp));
+      std::cout<<"delta_t: "<<delta_t<<std::endl;
+
+      // add delay_pose_time_ to current_time and assign it to current_time
+      sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
+      double delta_t_final = (toNanoSeconds(current_time) - toNanoSeconds(new_imu_msg.header.stamp));
+      std::cout<<"delta_t_final: "<<delta_t_final<<std::endl;
+      std::cout<<"DIFF: "<<delta_t - delta_t_final<<std::endl;
+
       const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
 
       geometry_msgs::msg::PoseStamped current_ekf_pose =
@@ -264,9 +278,27 @@ void EKFLocalizer::timer_callback()
 
 
   }
+}
+sensor_msgs::msg::Imu EKFLocalizer::findClosestImuMsg(const rclcpp::Time & current_time)
+{
+  sensor_msgs::msg::Imu closest_imu_msg;
+  uint64_t min_diff = std::numeric_limits<uint64_t>::max();
 
+  for (const auto& imu_msg : imu_msg_deque_) {
+    auto imu_time = imu_msg.header.stamp;
+    // std::cout << "Timestamp: " << imu_time.sec << " sec, " << imu_time.nanosec << " nsec" << std::endl;
+    uint64_t pose_time_ns = toNanoSeconds(current_time);
+    uint64_t imu_time_ns = toNanoSeconds(imu_time);
+    uint64_t diff = (pose_time_ns > imu_time_ns) ? (pose_time_ns - imu_time_ns) : (imu_time_ns - pose_time_ns);
 
+    if (diff < min_diff) {
+      min_diff = diff;
+      closest_imu_msg = imu_msg;
+    }
 
+  }
+  // std::cout<<"min_diff: "<<min_diff<<std::endl;
+  return closest_imu_msg;
 }
 
 /*
@@ -288,9 +320,9 @@ void EKFLocalizer::timer_tf_callback()
 
   const rclcpp::Time current_time = this->now();
 
-  if (!imu_msg_queue_.empty()) {
-    // size_t queue_size = imu_msg_queue_.size();
-    sensor_msgs::msg::Imu new_imu_msg = imu_msg_queue_.front();
+  if (!imu_msg_deque_.empty()) {
+
+    sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
 
     const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
 
@@ -344,7 +376,9 @@ void EKFLocalizer::callback_initial_pose(
   ekf_module_->initialize(*msg, transform);
   init_simple_1d_filters(*msg);
 }
-
+uint64_t EKFLocalizer::toNanoSeconds(const builtin_interfaces::msg::Time& time) {
+  return static_cast<uint64_t>(time.sec) * 1000000000ULL + time.nanosec;
+}
 /*
  * callback_pose_with_covariance
  */
@@ -356,6 +390,7 @@ void EKFLocalizer::callback_pose_with_covariance(
   }
 
   pose_queue_.push(msg);
+
 }
 
 /*
@@ -373,39 +408,30 @@ void EKFLocalizer::callback_twist_with_covariance(
 }
 void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
 {
-    // IMU mesajının zaman damgasını al
     rclcpp::Time curr_time = msg->header.stamp;
 
-    // İlk çağrıda zaman damgasını sakla ve geri dön
     if (imu_counter == 0) {
         prev_time_ = curr_time;
         imu_counter = 1;
         return;
     }
 
-    // Zaman farkını hesapla
     // double delta_t = (curr_time - prev_time_).seconds();
     // prev_time_ = curr_time;
 
-    // Zaman farkını yazdır (isteğe bağlı, sadece debug amaçlı)
     // std::cout << "delta_t: " << delta_t << std::endl;
 
-    // IMU mesajını kopyala
     sensor_msgs::msg::Imu imu_data = *msg;
 
-    // Roll, pitch ve yaw değerlerini güncelle
     // roll += imu_data.angular_velocity.x * delta_t;
     // pitch += imu_data.angular_velocity.y * delta_t;
     // yaw += imu_data.angular_velocity.z * delta_t;
     //
-    // // Roll, pitch, yaw değerlerini kullanarak quaternion oluştur
     // tf2::Quaternion q;
     // q.setRPY(roll, pitch, yaw);
     //
-    // // Quaternion'u IMU mesajının orientation kısmına ata
     // imu_data.orientation = tf2::toMsg(q);
 
-    // TransformStamped mesajını al (base_link ve imu_link arasındaki dönüşüm)
     geometry_msgs::msg::TransformStamped imu2_base_link_transform_stamped;
     try {
         imu2_base_link_transform_stamped = tf_buffer_->lookupTransform("base_link", "GNSS_INS/gnss_ins_link", tf2::TimePointZero);
@@ -414,11 +440,9 @@ void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
         return;
     }
 
-    // IMU mesajının orientation kısmını tf2::Quaternion'a dönüştür
     tf2::Quaternion imu_quat;
     tf2::fromMsg(imu_data.orientation, imu_quat);
 
-    // Transformasyonu al ve IMU'nun orientation kısmını dönüştür
     tf2::Quaternion transformed_quat = tf2::Transform(tf2::Quaternion(
         imu2_base_link_transform_stamped.transform.rotation.x,
         imu2_base_link_transform_stamped.transform.rotation.y,
@@ -426,17 +450,15 @@ void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
         imu2_base_link_transform_stamped.transform.rotation.w
     )) * imu_quat;
 
-    // Yeni orientation'ı IMU mesajına geri dönüştür
     geometry_msgs::msg::Quaternion new_orientation = tf2::toMsg(transformed_quat);
 
-    // Yeni orientation'ı kullanarak IMU mesajını güncelle
     sensor_msgs::msg::Imu new_imu_msg;
     new_imu_msg = imu_data;
     new_imu_msg.orientation = new_orientation;
-    imu_msg_queue_.push(new_imu_msg);
+    imu_msg_deque_.push_back(new_imu_msg);
 
-    while (imu_msg_queue_.size() > 10) {
-      imu_msg_queue_.pop();
+    while (imu_msg_deque_.size() > 5) {
+      imu_msg_deque_.pop_front();
     }
 
 }

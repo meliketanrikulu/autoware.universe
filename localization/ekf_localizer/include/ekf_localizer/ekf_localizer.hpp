@@ -200,9 +200,12 @@ private:
   // sensor_msgs::msg::Imu imu_data_;
 
 
-  std::queue<sensor_msgs::msg::Imu> imu_msg_queue_;
+  std::deque<sensor_msgs::msg::Imu> imu_msg_deque_;
   // rclcpp::Time pose_time;
-  // bool findClosestImuMsg(std::queue<sensor_msgs::msg::Imu> & imu_queue);
+  sensor_msgs::msg::Imu findClosestImuMsg(const rclcpp::Time & current_time);
+  builtin_interfaces::msg::Time pose_time_;
+  uint64_t toNanoSeconds(const builtin_interfaces::msg::Time& time);
+  double delay_pose_time_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
