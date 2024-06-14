@@ -283,11 +283,13 @@ sensor_msgs::msg::Imu EKFLocalizer::findClosestImuMsg(const rclcpp::Time & curre
 {
   sensor_msgs::msg::Imu closest_imu_msg;
   uint64_t min_diff = std::numeric_limits<uint64_t>::max();
+  // uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.8e+8;
+  uint64_t pose_time_ns = toNanoSeconds(current_time);
 
   for (const auto& imu_msg : imu_msg_deque_) {
     auto imu_time = imu_msg.header.stamp;
     // std::cout << "Timestamp: " << imu_time.sec << " sec, " << imu_time.nanosec << " nsec" << std::endl;
-    uint64_t pose_time_ns = toNanoSeconds(current_time);
+
     uint64_t imu_time_ns = toNanoSeconds(imu_time);
     uint64_t diff = (pose_time_ns > imu_time_ns) ? (pose_time_ns - imu_time_ns) : (imu_time_ns - pose_time_ns);
 
