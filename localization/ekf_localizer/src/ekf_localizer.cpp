@@ -93,6 +93,9 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
   "/sensing/gnss/sbg/ros/imu/data", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
 
+  sub_gnss_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+  "/sensing/gnss/pose_with_covariance", 1, std::bind(&EKFLocalizer::callbackGnss, this, _1));
+
   service_trigger_node_ = create_service<std_srvs::srv::SetBool>(
     "trigger_node_srv",
     std::bind(
@@ -203,7 +206,7 @@ void EKFLocalizer::timer_callback()
         // Update Simple 1D filter with considering change of z value due to measurement pose delay
         const double delay_time =
           (t_curr - pose->header.stamp).seconds() + params_.pose_additional_delay;
-        std::cout<<"delay_time: "<<delay_time<<std::endl;
+        // std::cout<<"delay_time: "<<delay_time<<std::endl;
         delay_pose_time_ = delay_time;
         const auto pose_with_z_delay = ekf_module_->compensatePoseWithZDelay(*pose, delay_time);
         updateSimple1DFilters(pose_with_z_delay, params_.pose_smoothing_steps);
@@ -245,22 +248,28 @@ void EKFLocalizer::timer_callback()
   }
   twist_diag_info_.no_update_count = twist_is_updated ? 0 : (twist_diag_info_.no_update_count + 1);
 
-  const double z = z_filter_.get_x();
+
+  // const double z = gnss_pose_msg.pose.pose.position.z;
+  // const double z = z_filter_.get_x();
   // const double roll = roll_filter_.get_x();
   // const double pitch = pitch_filter_.get_x();
-
+  double z = 0.0;
+  if(!gnss_msg_deque_.empty()) {
+    geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
+    z = closest_gnss_msg.pose.pose.position.z;
+  }
 
   if (!imu_msg_deque_.empty()) {
       sensor_msgs::msg::Imu imu_data = imu_msg_deque_.front();
       // IMU mesajının zaman damgasını al ve nanosec cinsinden yazdır
-      double delta_t = (toNanoSeconds(current_time) - toNanoSeconds(imu_data.header.stamp));
-      std::cout<<"delta_t: "<<delta_t<<std::endl;
+      // double delta_t = (toNanoSeconds(current_time) - toNanoSeconds(imu_data.header.stamp));
+      // std::cout<<"delta_t: "<<delta_t<<std::endl;
 
       // add delay_pose_time_ to current_time and assign it to current_time
       sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
-      double delta_t_final = (toNanoSeconds(current_time) - toNanoSeconds(new_imu_msg.header.stamp));
-      std::cout<<"delta_t_final: "<<delta_t_final<<std::endl;
-      std::cout<<"DIFF: "<<delta_t - delta_t_final<<std::endl;
+      // double delta_t_final = (toNanoSeconds(current_time) - toNanoSeconds(new_imu_msg.header.stamp));
+      // std::cout<<"delta_t_final: "<<delta_t_final<<std::endl;
+      // std::cout<<"DIFF: "<<delta_t - delta_t_final<<std::endl;
 
       const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
 
@@ -279,12 +288,35 @@ void EKFLocalizer::timer_callback()
 
   }
 }
+
+geometry_msgs::msg::PoseWithCovarianceStamped EKFLocalizer::findClosestGnssMsg(const rclcpp::Time & current_time)
+{
+  geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg;
+  uint64_t min_diff = std::numeric_limits<uint64_t>::max();
+  uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
+  // uint64_t pose_time_ns = toNanoSeconds(current_time);
+
+  for (const auto& gnss_msg : gnss_msg_deque_) {
+    auto gnss_time = gnss_msg.header.stamp;
+
+    uint64_t gnss_time_ns = toNanoSeconds(gnss_time);
+    uint64_t diff = (pose_time_ns > gnss_time_ns) ? (pose_time_ns - gnss_time_ns) : (gnss_time_ns - pose_time_ns);
+
+    if (diff < min_diff) {
+      min_diff = diff;
+      closest_gnss_msg = gnss_msg;
+    }
+
+  }
+  // std::cout<<"min_diff: "<<min_diff<<std::endl;
+  return closest_gnss_msg;
+}
 sensor_msgs::msg::Imu EKFLocalizer::findClosestImuMsg(const rclcpp::Time & current_time)
 {
   sensor_msgs::msg::Imu closest_imu_msg;
   uint64_t min_diff = std::numeric_limits<uint64_t>::max();
-  // uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.8e+8;
-  uint64_t pose_time_ns = toNanoSeconds(current_time);
+  uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
+  // uint64_t pose_time_ns = toNanoSeconds(current_time);
 
   for (const auto& imu_msg : imu_msg_deque_) {
     auto imu_time = imu_msg.header.stamp;
@@ -315,12 +347,19 @@ void EKFLocalizer::timer_tf_callback()
   if (params_.pose_frame_id.empty()) {
     return;
   }
+  // const double z = gnss_pose_msg.pose.pose.position.z;
 
-  const double z = z_filter_.get_x();
+  // const double z = z_filter_.get_x();
   // const double roll = roll_filter_.get_x();
   // const double pitch = pitch_filter_.get_x();
 
   const rclcpp::Time current_time = this->now();
+  double z = 0.0;
+  if(!gnss_msg_deque_.empty()) {
+    geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
+    z = closest_gnss_msg.pose.pose.position.z;
+  }
+
 
   if (!imu_msg_deque_.empty()) {
 
@@ -369,6 +408,7 @@ bool EKFLocalizer::get_transform_from_tf(
 void EKFLocalizer::callback_initial_pose(
   geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
+  std::cout<<"callbackInitialPose"<<std::endl;
   geometry_msgs::msg::TransformStamped transform;
   if (!get_transform_from_tf(params_.pose_frame_id, msg->header.frame_id, transform)) {
     RCLCPP_ERROR(
@@ -408,15 +448,23 @@ void EKFLocalizer::callback_twist_with_covariance(
   }
   twist_queue_.push(msg);
 }
+void EKFLocalizer::callbackGnss(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+{
+  // gnss_pose_msg = *msg;
+  gnss_msg_deque_.push_back(*msg);
+  while (gnss_msg_deque_.size() > 15) {
+    gnss_msg_deque_.pop_front();
+  }
+}
 void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
 {
     rclcpp::Time curr_time = msg->header.stamp;
 
-    if (imu_counter == 0) {
-        prev_time_ = curr_time;
-        imu_counter = 1;
-        return;
-    }
+    // if (imu_counter == 0) {
+    //     prev_time_ = curr_time;
+    //     imu_counter = 1;
+    //     return;
+    // }
 
     // double delta_t = (curr_time - prev_time_).seconds();
     // prev_time_ = curr_time;
@@ -459,7 +507,7 @@ void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
     new_imu_msg.orientation = new_orientation;
     imu_msg_deque_.push_back(new_imu_msg);
 
-    while (imu_msg_deque_.size() > 5) {
+    while (imu_msg_deque_.size() > 15) {
       imu_msg_deque_.pop_front();
     }
 

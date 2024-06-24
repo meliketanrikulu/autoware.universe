@@ -138,6 +138,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr
     sub_twist_with_cov_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr    sub_imu_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr    sub_gnss_;
 
   //!< @brief time for ekf calculation callback
   rclcpp::TimerBase::SharedPtr timer_control_;
@@ -197,12 +198,17 @@ private:
    */
   void callbackTwistWithCovariance(geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg);
   void callbackImu(sensor_msgs::msg::Imu::SharedPtr msg);
+  void callbackGnss(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+  geometry_msgs::msg::PoseWithCovarianceStamped gnss_pose_msg;
+  // int counter_x;
   // sensor_msgs::msg::Imu imu_data_;
 
 
   std::deque<sensor_msgs::msg::Imu> imu_msg_deque_;
+  std::deque<geometry_msgs::msg::PoseWithCovarianceStamped> gnss_msg_deque_;
   // rclcpp::Time pose_time;
   sensor_msgs::msg::Imu findClosestImuMsg(const rclcpp::Time & current_time);
+  geometry_msgs::msg::PoseWithCovarianceStamped findClosestGnssMsg(const rclcpp::Time & current_time);
   builtin_interfaces::msg::Time pose_time_;
   uint64_t toNanoSeconds(const builtin_interfaces::msg::Time& time);
   double delay_pose_time_;
