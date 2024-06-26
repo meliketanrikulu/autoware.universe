@@ -248,15 +248,19 @@ void EKFLocalizer::timer_callback()
   }
   twist_diag_info_.no_update_count = twist_is_updated ? 0 : (twist_diag_info_.no_update_count + 1);
 
-
+  const double z_filtered = z_filter_.get_x();
   // const double z = gnss_pose_msg.pose.pose.position.z;
-  // const double z = z_filter_.get_x();
   // const double roll = roll_filter_.get_x();
   // const double pitch = pitch_filter_.get_x();
   double z = 0.0;
   if(!gnss_msg_deque_.empty()) {
     geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
-    z = closest_gnss_msg.pose.pose.position.z;
+    // z = closest_gnss_msg.pose.pose.position.z;
+
+    sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
+    // z = closest_gnss_msg.pose.pose.position.z + new_imu_msg.linear_acceleration.z * delay_pose_time_/10 * delay_pose_time_ / 2.0;
+    z = z_filtered + new_imu_msg.linear_acceleration.z * imu_dt_ * imu_dt_ / 2.0;
+
   }
 
   if (!imu_msg_deque_.empty()) {
@@ -293,8 +297,8 @@ geometry_msgs::msg::PoseWithCovarianceStamped EKFLocalizer::findClosestGnssMsg(c
 {
   geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg;
   uint64_t min_diff = std::numeric_limits<uint64_t>::max();
-  uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
-  // uint64_t pose_time_ns = toNanoSeconds(current_time);
+  // uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
+  uint64_t pose_time_ns = toNanoSeconds(current_time);
 
   for (const auto& gnss_msg : gnss_msg_deque_) {
     auto gnss_time = gnss_msg.header.stamp;
@@ -315,8 +319,8 @@ sensor_msgs::msg::Imu EKFLocalizer::findClosestImuMsg(const rclcpp::Time & curre
 {
   sensor_msgs::msg::Imu closest_imu_msg;
   uint64_t min_diff = std::numeric_limits<uint64_t>::max();
-  uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
-  // uint64_t pose_time_ns = toNanoSeconds(current_time);
+  // uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
+  uint64_t pose_time_ns = toNanoSeconds(current_time);
 
   for (const auto& imu_msg : imu_msg_deque_) {
     auto imu_time = imu_msg.header.stamp;
@@ -349,15 +353,24 @@ void EKFLocalizer::timer_tf_callback()
   }
   // const double z = gnss_pose_msg.pose.pose.position.z;
 
-  // const double z = z_filter_.get_x();
+  const double z_filtered = z_filter_.get_x();
   // const double roll = roll_filter_.get_x();
   // const double pitch = pitch_filter_.get_x();
 
   const rclcpp::Time current_time = this->now();
   double z = 0.0;
+  // if(!gnss_msg_deque_.empty()) {
+  //   geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
+  //   z = closest_gnss_msg.pose.pose.position.z;
+  // }
   if(!gnss_msg_deque_.empty()) {
     geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
-    z = closest_gnss_msg.pose.pose.position.z;
+    // z = closest_gnss_msg.pose.pose.position.z;
+
+    sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
+    // z = closest_gnss_msg.pose.pose.position.z + new_imu_msg.linear_acceleration.z * delay_pose_time_/10 * delay_pose_time_ / 2.0;
+    z = z_filtered + new_imu_msg.linear_acceleration.z * imu_dt_ * imu_dt_ / 2.0;
+
   }
 
 
@@ -510,7 +523,13 @@ void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
     while (imu_msg_deque_.size() > 15) {
       imu_msg_deque_.pop_front();
     }
+  if (start == 1 ) {
+    imu_dt_ = (last_imu_time_ - msg->header.stamp).seconds() ;
+    std::cout <<"IMU dt: " << imu_dt_ << std::endl;
+  }
+  start = 1;
 
+  last_imu_time_ = this->now();
 }
 
 /*

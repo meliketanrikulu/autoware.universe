@@ -203,7 +203,9 @@ private:
   // int counter_x;
   // sensor_msgs::msg::Imu imu_data_;
 
-
+  double imu_dt_;
+  bool start = 0;
+  rclcpp::Time last_imu_time_ = rclcpp::Time(0, 0);
   std::deque<sensor_msgs::msg::Imu> imu_msg_deque_;
   std::deque<geometry_msgs::msg::PoseWithCovarianceStamped> gnss_msg_deque_;
   // rclcpp::Time pose_time;
