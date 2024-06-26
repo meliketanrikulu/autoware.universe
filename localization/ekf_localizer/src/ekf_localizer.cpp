@@ -93,8 +93,8 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
   "/sensing/gnss/sbg/ros/imu/data", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
 
-  sub_gnss_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-  "/sensing/gnss/pose_with_covariance", 1, std::bind(&EKFLocalizer::callbackGnss, this, _1));
+  // sub_gnss_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+  // "/sensing/gnss/pose_with_covariance", 1, std::bind(&EKFLocalizer::callbackGnss, this, _1));
 
   service_trigger_node_ = create_service<std_srvs::srv::SetBool>(
     "trigger_node_srv",
@@ -252,16 +252,16 @@ void EKFLocalizer::timer_callback()
   // const double z = gnss_pose_msg.pose.pose.position.z;
   // const double roll = roll_filter_.get_x();
   // const double pitch = pitch_filter_.get_x();
-  double z = 0.0;
-  if(!gnss_msg_deque_.empty()) {
-    geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
+  // double z = 0.0;
+  // if(!gnss_msg_deque_.empty()) {
+    // geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
     // z = closest_gnss_msg.pose.pose.position.z;
 
     sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
     // z = closest_gnss_msg.pose.pose.position.z + new_imu_msg.linear_acceleration.z * delay_pose_time_/10 * delay_pose_time_ / 2.0;
-    z = z_filtered + new_imu_msg.linear_acceleration.z * imu_dt_ * imu_dt_ / 2.0;
+    const double z = z_filtered + new_imu_msg.linear_acceleration.z * imu_dt_ * imu_dt_ / 2.0;
 
-  }
+  // }
 
   if (!imu_msg_deque_.empty()) {
       sensor_msgs::msg::Imu imu_data = imu_msg_deque_.front();
@@ -293,28 +293,28 @@ void EKFLocalizer::timer_callback()
   }
 }
 
-geometry_msgs::msg::PoseWithCovarianceStamped EKFLocalizer::findClosestGnssMsg(const rclcpp::Time & current_time)
-{
-  geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg;
-  uint64_t min_diff = std::numeric_limits<uint64_t>::max();
-  // uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
-  uint64_t pose_time_ns = toNanoSeconds(current_time);
-
-  for (const auto& gnss_msg : gnss_msg_deque_) {
-    auto gnss_time = gnss_msg.header.stamp;
-
-    uint64_t gnss_time_ns = toNanoSeconds(gnss_time);
-    uint64_t diff = (pose_time_ns > gnss_time_ns) ? (pose_time_ns - gnss_time_ns) : (gnss_time_ns - pose_time_ns);
-
-    if (diff < min_diff) {
-      min_diff = diff;
-      closest_gnss_msg = gnss_msg;
-    }
-
-  }
-  // std::cout<<"min_diff: "<<min_diff<<std::endl;
-  return closest_gnss_msg;
-}
+// geometry_msgs::msg::PoseWithCovarianceStamped EKFLocalizer::findClosestGnssMsg(const rclcpp::Time & current_time)
+// {
+//   geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg;
+//   uint64_t min_diff = std::numeric_limits<uint64_t>::max();
+//   // uint64_t pose_time_ns = toNanoSeconds(current_time) - 0.9e+8;
+//   uint64_t pose_time_ns = toNanoSeconds(current_time);
+//
+//   for (const auto& gnss_msg : gnss_msg_deque_) {
+//     auto gnss_time = gnss_msg.header.stamp;
+//
+//     uint64_t gnss_time_ns = toNanoSeconds(gnss_time);
+//     uint64_t diff = (pose_time_ns > gnss_time_ns) ? (pose_time_ns - gnss_time_ns) : (gnss_time_ns - pose_time_ns);
+//
+//     if (diff < min_diff) {
+//       min_diff = diff;
+//       closest_gnss_msg = gnss_msg;
+//     }
+//
+//   }
+//   // std::cout<<"min_diff: "<<min_diff<<std::endl;
+//   return closest_gnss_msg;
+// }
 sensor_msgs::msg::Imu EKFLocalizer::findClosestImuMsg(const rclcpp::Time & current_time)
 {
   sensor_msgs::msg::Imu closest_imu_msg;
@@ -358,20 +358,20 @@ void EKFLocalizer::timer_tf_callback()
   // const double pitch = pitch_filter_.get_x();
 
   const rclcpp::Time current_time = this->now();
-  double z = 0.0;
+  // double z = 0.0;
   // if(!gnss_msg_deque_.empty()) {
   //   geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
   //   z = closest_gnss_msg.pose.pose.position.z;
   // }
-  if(!gnss_msg_deque_.empty()) {
-    geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
+  // if(!gnss_msg_deque_.empty()) {
+  //   geometry_msgs::msg::PoseWithCovarianceStamped closest_gnss_msg = findClosestGnssMsg(current_time);
     // z = closest_gnss_msg.pose.pose.position.z;
 
     sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
     // z = closest_gnss_msg.pose.pose.position.z + new_imu_msg.linear_acceleration.z * delay_pose_time_/10 * delay_pose_time_ / 2.0;
-    z = z_filtered + new_imu_msg.linear_acceleration.z * imu_dt_ * imu_dt_ / 2.0;
+    const double z = z_filtered + new_imu_msg.linear_acceleration.z * imu_dt_ * imu_dt_ / 2.0;
 
-  }
+  // }
 
 
   if (!imu_msg_deque_.empty()) {
@@ -461,14 +461,14 @@ void EKFLocalizer::callback_twist_with_covariance(
   }
   twist_queue_.push(msg);
 }
-void EKFLocalizer::callbackGnss(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
-{
-  // gnss_pose_msg = *msg;
-  gnss_msg_deque_.push_back(*msg);
-  while (gnss_msg_deque_.size() > 15) {
-    gnss_msg_deque_.pop_front();
-  }
-}
+// void EKFLocalizer::callbackGnss(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+// {
+//   // gnss_pose_msg = *msg;
+//   gnss_msg_deque_.push_back(*msg);
+//   while (gnss_msg_deque_.size() > 15) {
+//     gnss_msg_deque_.pop_front();
+//   }
+// }
 void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
 {
     rclcpp::Time curr_time = msg->header.stamp;
@@ -524,12 +524,12 @@ void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
       imu_msg_deque_.pop_front();
     }
   if (start == 1 ) {
-    imu_dt_ = (last_imu_time_ - msg->header.stamp).seconds() ;
+    imu_dt_ = std::abs((last_imu_time_ - msg->header.stamp).seconds() );
     std::cout <<"IMU dt: " << imu_dt_ << std::endl;
   }
   start = 1;
 
-  last_imu_time_ = this->now();
+  last_imu_time_ = msg->header.stamp;
 }
 
 /*
