@@ -47,7 +47,7 @@ TrackerDebugger::TrackerDebugger(rclcpp::Node & node, const std::string & frame_
   stamp_publish_output_ = now;
 
   // setup diagnostics
-  setupDiagnostics();
+  // setupDiagnostics();
 }
 
 void TrackerDebugger::loadParameters()
@@ -95,7 +95,7 @@ void TrackerDebugger::publishTentativeObjects(
 void TrackerDebugger::checkDelay(diagnostic_updater::DiagnosticStatusWrapper & stat)
 {
   if (!is_initialized_) {
-    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Measurement time is not set.");
+    //stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Measurement time is not set.");
     return;
   }
   const double & delay = pipeline_latency_ms_ / 1e3;  // [s]
