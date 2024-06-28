@@ -99,7 +99,7 @@ public:
     frame.ndt_base_frame = node->declare_parameter<std::string>("frame.ndt_base_frame");
     frame.map_frame = node->declare_parameter<std::string>("frame.map_frame");
 
-    sensor_points.timeout_sec = node->declare_parameter<double>("sensor_points.timeout_sec");
+    sensor_points.timeout_sec = node->declare_parameter<double>("sensor_points.timeout_sec",1.0);
     sensor_points.required_distance =
       node->declare_parameter<double>("sensor_points.required_distance");
 
@@ -123,11 +123,11 @@ public:
     validation.initial_pose_distance_tolerance_m =
       node->declare_parameter<double>("validation.initial_pose_distance_tolerance_m");
     validation.initial_to_result_distance_tolerance_m =
-      node->declare_parameter<double>("validation.initial_to_result_distance_tolerance_m");
+      node->declare_parameter<double>("validation.initial_to_result_distance_tolerance_m",3.0);
     validation.critical_upper_bound_exe_time_ms =
       node->declare_parameter<double>("validation.critical_upper_bound_exe_time_ms");
     validation.skipping_publish_num =
-      node->declare_parameter<int64_t>("validation.skipping_publish_num");
+      node->declare_parameter<int64_t>("validation.skipping_publish_num",5);
 
     const int64_t converged_param_type_tmp =
       node->declare_parameter<int64_t>("score_estimation.converged_param_type");
