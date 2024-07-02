@@ -241,7 +241,7 @@ void NDTScanMatcher::callback_initial_pose(
 
     callback_initial_pose_main(initial_pose_msg_ptr);
 
-    diagnostics_initial_pose_->publish();
+    diagnostics_initial_pose_->publish(initial_pose_msg_ptr->header.stamp);
     initial_pose_switch_counter_++;
   }else {
     std::cout<<"NOT reading EKF input"<<std::endl;
@@ -262,7 +262,7 @@ void NDTScanMatcher::callback_ndt_initial_pose(
 
     callback_initial_pose_main(ndt_pose);
 
-    diagnostics_initial_pose_->publish();
+    diagnostics_initial_pose_->publish(initial_pose_msg_ptr->header.stamp);
 
 
 }
@@ -270,7 +270,7 @@ void NDTScanMatcher::callback_initial_pose_main(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr)
 {
   std::cout<<"AAAAAAAAAAAAAAAAAAAAAA"<<std::endl;
-  diagnostics_initial_pose_->addKeyValue(
+  diagnostics_initial_pose_->add_key_value(
     "topic_time_stamp", static_cast<rclcpp::Time>(initial_pose_msg_ptr->header.stamp).seconds());
 
   // check is_activated
@@ -719,7 +719,7 @@ void NDTScanMatcher::publish_tf(
   result_pose_stamped_msg.header.frame_id = param_.frame.map_frame;
   result_pose_stamped_msg.pose = result_pose_msg;
   tf2_broadcaster_.sendTransform(
-    tier4_autoware_utils::pose2transform(result_pose_stamped_msg, param_.frame.base_frame));
+    autoware::universe_utils::pose2transform(result_pose_stamped_msg, param_.frame.base_frame));
 }
 
 void NDTScanMatcher::publish_pose(
