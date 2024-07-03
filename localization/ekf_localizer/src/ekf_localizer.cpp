@@ -246,12 +246,12 @@ void EKFLocalizer::timer_callback()
   // const double pitch = pitch_filter_.get_x();
   // read imu_queue_
 
-  const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
+  const auto rpy = autoware::universe_utils::getRPY(new_imu_msg.orientation);
 
   geometry_msgs::msg::PoseStamped current_ekf_pose =
-    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false);
+    ekf_module_->get_current_pose(current_time, z, rpy.x, rpy.y, false);
   geometry_msgs::msg::PoseStamped current_biased_ekf_pose =
-    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, true);
+    ekf_module_->get_current_pose(current_time, z, rpy.x, rpy.y, true);
   const geometry_msgs::msg::TwistStamped current_ekf_twist =
     ekf_module_->get_current_twist(current_time);
 
@@ -279,11 +279,11 @@ void EKFLocalizer::timer_tf_callback()
 
   const rclcpp::Time current_time = this->now();
 
-  const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
+  const auto rpy = autoware::universe_utils::getRPY(new_imu_msg.orientation);
 
   geometry_msgs::msg::TransformStamped transform_stamped;
   transform_stamped = autoware::universe_utils::pose2transform(
-    ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false), "base_link");
+    ekf_module_->get_current_pose(current_time, z, rpy.x, rpy.y, false), "base_link");
   transform_stamped.header.stamp = current_time;
   tf_br_->sendTransform(transform_stamped);
 }
