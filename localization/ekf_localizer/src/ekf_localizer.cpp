@@ -88,7 +88,7 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
     "in_pose_with_covariance", 1,
     std::bind(&EKFLocalizer::callback_pose_with_covariance, this, _1));
   sub_twist_with_cov_ = create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
-    "in_twist_with_covariance", 1, std::bind(&EKFLocalizer::callbackTwistWithCovariance, this, _1));
+    "in_twist_with_covariance", 1, std::bind(&EKFLocalizer::callback_twist_with_covariance, this, _1));
 
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
   "/sensing/gnss/sbg/ros/imu/data", 1, std::bind(&EKFLocalizer::callbackImu, this, _1));
@@ -205,11 +205,11 @@ void EKFLocalizer::timer_callback()
 
         // Update Simple 1D filter with considering change of z value due to measurement pose delay
         const double delay_time =
-          (t_curr - pose->header.stamp).seconds() + params_.pose_additional_delay;
+          (current_time - pose->header.stamp).seconds() + params_.pose_additional_delay;
         // std::cout<<"delay_time: "<<delay_time<<std::endl;
         delay_pose_time_ = delay_time;
-        const auto pose_with_z_delay = ekf_module_->compensatePoseWithZDelay(*pose, delay_time);
-        updateSimple1DFilters(pose_with_z_delay, params_.pose_smoothing_steps);
+        const auto pose_with_z_delay = ekf_module_->compensate_pose_with_z_delay(*pose, delay_time);
+        update_simple_1d_filters(pose_with_z_delay, params_.pose_smoothing_steps);
       }
     }
     DEBUG_INFO(
@@ -275,18 +275,18 @@ void EKFLocalizer::timer_callback()
       // std::cout<<"delta_t_final: "<<delta_t_final<<std::endl;
       // std::cout<<"DIFF: "<<delta_t - delta_t_final<<std::endl;
 
-      const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
+      const auto rpy = autoware::universe_utils::getRPY(new_imu_msg.orientation);
 
       geometry_msgs::msg::PoseStamped current_ekf_pose =
-        ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false);
+        ekf_module_->get_current_pose(current_time, z, rpy.x, rpy.y, false);
       geometry_msgs::msg::PoseStamped current_biased_ekf_pose =
-        ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, true);
+        ekf_module_->get_current_pose(current_time, z, rpy.x, rpy.y, true);
       const geometry_msgs::msg::TwistStamped current_ekf_twist =
-        ekf_module_->getCurrentTwist(current_time);
+        ekf_module_->get_current_twist(current_time);
 
       /* publish ekf result */
       publishEstimateResult(current_ekf_pose, current_biased_ekf_pose, current_ekf_twist);
-      publishDiagnostics(current_time);
+      publish_diagnostics(current_ekf_pose,current_time);
 
 
 
@@ -378,11 +378,11 @@ void EKFLocalizer::timer_tf_callback()
 
     sensor_msgs::msg::Imu new_imu_msg = findClosestImuMsg(current_time);
 
-    const auto rpy = tier4_autoware_utils::getRPY(new_imu_msg.orientation);
+    const auto rpy = autoware::universe_utils::getRPY(new_imu_msg.orientation);
 
     geometry_msgs::msg::TransformStamped transform_stamped;
-    transform_stamped = tier4_autoware_utils::pose2transform(
-      ekf_module_->getCurrentPose(current_time, z, rpy.x, rpy.y, false), "base_link");
+    transform_stamped = autoware::universe_utils::pose2transform(
+      ekf_module_->get_current_pose(current_time, z, rpy.x, rpy.y, false), "base_link");
     transform_stamped.header.stamp = current_time;
     tf_br_->sendTransform(transform_stamped);
   }

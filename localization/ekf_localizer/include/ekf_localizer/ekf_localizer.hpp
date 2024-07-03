@@ -53,7 +53,7 @@
 #include <sensor_msgs/msg/detail/camera_info__builder.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 // include tier4_autoware_utils:: getQuaternionFromRPY
-#include <tier4_autoware_utils/geometry/geometry.hpp>
+// #include <tier4_autoware_utils/geometry/geometry.hpp>
 #include <Eigen/Geometry>
 
 
@@ -196,7 +196,7 @@ private:
   /**
    * @brief set twist with covariance measurement
    */
-  void callbackTwistWithCovariance(geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg);
+  void callback_twist_with_covariance(geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg);
   void callbackImu(sensor_msgs::msg::Imu::SharedPtr msg);
   void callbackGnss(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
   geometry_msgs::msg::PoseWithCovarianceStamped gnss_pose_msg;
