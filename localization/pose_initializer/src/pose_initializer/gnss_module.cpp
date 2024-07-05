@@ -25,7 +25,7 @@ GnssModule::GnssModule(rclcpp::Node * node)
   timeout_(node->declare_parameter<double>("gnss_pose_timeout"))
 {
   sub_gnss_pose_ = node->create_subscription<PoseWithCovarianceStamped>(
-    "gnss_pose_cov", 1, std::bind(&GnssModule::on_pose, this, std::placeholders::_1));
+    "gnss_pose_cov",   rclcpp::QoS(rclcpp::KeepLast(1)).best_effort(), std::bind(&GnssModule::on_pose, this, std::placeholders::_1));
 }
 
 void GnssModule::on_pose(PoseWithCovarianceStamped::ConstSharedPtr msg)
