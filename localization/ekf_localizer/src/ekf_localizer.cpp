@@ -373,7 +373,7 @@ void EKFLocalizer::callbackImu(sensor_msgs::msg::Imu::SharedPtr msg)
     prev_time_ = curr_time;
 
     // Zaman farkını yazdır (isteğe bağlı, sadece debug amaçlı)
-    std::cout << "delta_t: " << delta_t << std::endl;
+    // std::cout << "delta_t: " << delta_t << std::endl;
 
     // IMU mesajını kopyala
     sensor_msgs::msg::Imu imu_data = *msg;
