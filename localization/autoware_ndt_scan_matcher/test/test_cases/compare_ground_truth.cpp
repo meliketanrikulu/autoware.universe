@@ -74,9 +74,24 @@ TEST_F(TestNDTScanMatcher, compare_ground_truth)  // NOLINT
   result_pose_with_cov.header.frame_id= "map";
   output_pose_with_covariance_publisher_->publish(result_pose_with_cov);
 
-  // ekf_pose_with_covariance_publisher_->publish(result_pose_with_cov);
-  // sensor_pcd_publisher_->publish_pcd(*rosbag_parser_node_->get_pc());
+  geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr ndt_output_msg;
 
+  ndt_sub_ = node_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+"/ndt_pose_with_covariance", 1, [&](const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
+  RCLCPP_INFO_STREAM(node_->get_logger(), "xx ndt_pose: " << msg->pose.pose.position.x << ", "
+                                                        << msg->pose.pose.position.y << ", "
+                                                        << msg->pose.pose.position.z);
+  ndt_output_msg = msg;
+  });
+  int counter = 0;
+  while(counter < 200){
+    std::cout<<"counter: "<<counter<<std::endl;
+    ekf_pose_with_covariance_publisher_->publish(*rosbag_parser_node_->get_pose_with_cov());
+    ekf_pose_with_covariance_publisher_->publish(*rosbag_parser_node_->get_pose_with_cov());
+    sensor_pcd_publisher_->publish_pcd(*rosbag_parser_node_->get_pc());
+    counter++;
+
+  }
 
   //--------//
   // Assert //
@@ -84,9 +99,9 @@ TEST_F(TestNDTScanMatcher, compare_ground_truth)  // NOLINT
   RCLCPP_INFO_STREAM(
     node_->get_logger(), std::fixed << "result_pose: " << result_pose.position.x << ", "
                                     << result_pose.position.y << ", " << result_pose.position.z);
-  EXPECT_NEAR(result_pose.position.x, rosbag_parser_node_->get_pose_with_cov()->pose.pose.position.x, 2.0);
-  EXPECT_NEAR(result_pose.position.y, rosbag_parser_node_->get_pose_with_cov()->pose.pose.position.y, 2.0);
-  EXPECT_NEAR(result_pose.position.z, rosbag_parser_node_->get_pose_with_cov()->pose.pose.position.z, 2.0);
+  EXPECT_NEAR(ndt_output_msg->pose.pose.position.x, initial_pose_msg.pose.pose.position.x, 2.0);
+  EXPECT_NEAR(ndt_output_msg->pose.pose.position.y, initial_pose_msg.pose.pose.position.y, 2.0);
+  EXPECT_NEAR(ndt_output_msg->pose.pose.position.z, initial_pose_msg.pose.pose.position.z, 2.0);
 
   rclcpp::shutdown();
   t1.join();
