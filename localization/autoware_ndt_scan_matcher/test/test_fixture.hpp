@@ -20,6 +20,7 @@
 #include "stub_pcd_loader.hpp"
 #include "stub_sensor_pcd_publisher.hpp"
 #include "stub_trigger_node_client.hpp"
+#include "pcd_loader.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -27,11 +28,9 @@
 #include <gtest/gtest.h>
 #include <rcl_yaml_param_parser/parser.h>
 #include <tf2_ros/static_transform_broadcaster.h>
-
 #include <memory>
 #include <string>
 #include <vector>
-
 class TestNDTScanMatcher : public ::testing::Test
 {
 protected:
@@ -73,19 +72,47 @@ protected:
     tf_static.transform.rotation.w = 1.0;
     tf_broadcaster_->sendTransform(tf_static);
 
+    /// broadcast tf
+    geometry_msgs::msg::TransformStamped cgt_tf_static;
+    cgt_tf_static.transform.translation.x = 58930.06280366103;
+    cgt_tf_static.transform.translation.y = 43207.28552435131;
+    cgt_tf_static.transform.translation.z = 73.30034480291735;
+    cgt_tf_static.transform.rotation.x = 0.0;
+    cgt_tf_static.transform.rotation.y = 0.0;
+    cgt_tf_static.transform.rotation.z = 0.0;
+    cgt_tf_static.transform.rotation.w = 1.0;
+    cgt_tf_static.header.frame_id = "map";
+    cgt_tf_static.child_frame_id = "viewer";
+    std::cout << "xx cgt_tf_static: " << cgt_tf_static.transform.translation.x << std::endl;
+    tf_broadcaster_->sendTransform(cgt_tf_static);
     // prepare stubs
-    pcd_loader_ = std::make_shared<StubPcdLoader>();
+    stub_pcd_loader_ = std::make_shared<StubPcdLoader>();
     initialpose_client_ = std::make_shared<StubInitialposeClient>();
     trigger_node_client_ = std::make_shared<StubTriggerNodeClient>();
     sensor_pcd_publisher_ = std::make_shared<StubSensorPcdPublisher>();
+    pcd_loader_ = std::make_shared<PcdLoader>();
+
+    input_pose_with_covariance_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
+  "/input_pose_with_covariance_publisher_", 10);
+
+    output_pose_with_covariance_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
+"/output_pose_with_covariance_publisher_", 10);
+    ekf_pose_with_covariance_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
+    "/ekf_pose_with_covariance", 10);
   }
 
   std::shared_ptr<autoware::ndt_scan_matcher::NDTScanMatcher> node_;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_broadcaster_;
-  std::shared_ptr<StubPcdLoader> pcd_loader_;
+  std::shared_ptr<StubPcdLoader> stub_pcd_loader_;
   std::shared_ptr<StubInitialposeClient> initialpose_client_;
   std::shared_ptr<StubTriggerNodeClient> trigger_node_client_;
   std::shared_ptr<StubSensorPcdPublisher> sensor_pcd_publisher_;
+  std::shared_ptr<PcdLoader> pcd_loader_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr input_pose_with_covariance_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr output_pose_with_covariance_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr ekf_pose_with_covariance_publisher_;
+
+
 };
 
 #endif  // TEST_FIXTURE_HPP_

@@ -1,0 +1,3 @@
+<launch>
+<node pkg="test_ndt_node" exec="test_ndt_node" name="test_ndt_node" output="screen"/>
+</launch>

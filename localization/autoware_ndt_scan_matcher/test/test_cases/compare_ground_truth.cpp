@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TEST_CASES__STANDARD_SEQUENCE_FOR_INITIAL_POSE_ESTIMATION_HPP_
-#define TEST_CASES__STANDARD_SEQUENCE_FOR_INITIAL_POSE_ESTIMATION_HPP_
+#ifndef TEST_CASES__COMPARE_GROUND_TRUTH_HPP_
+#define TEST_CASES__COMPARE_GROUND_TRUTH_HPP_
 
 #include "../test_fixture.hpp"
 
@@ -22,12 +22,15 @@
 
 #include <gtest/gtest.h>
 #include <rcl_yaml_param_parser/parser.h>
-
+#include "../rosbag_parser.hpp"
+#include "../pcd_loader.hpp"
 #include <memory>
 #include <string>
 #include <vector>
 
-TEST_F(TestNDTScanMatcher, standard_sequence_for_initial_pose_estimation)  // NOLINT
+
+
+TEST_F(TestNDTScanMatcher, compare_ground_truth)  // NOLINT
 {
   //---------//
   // Arrange //
@@ -37,7 +40,8 @@ TEST_F(TestNDTScanMatcher, standard_sequence_for_initial_pose_estimation)  // NO
     exec.add_node(node_);
     exec.spin();
   });
-  std::thread t2([&]() { rclcpp::spin(stub_pcd_loader_); });
+  std::thread t2([&]() { rclcpp::spin(pcd_loader_); });
+
 
   //-----//
   // Act //
@@ -45,16 +49,34 @@ TEST_F(TestNDTScanMatcher, standard_sequence_for_initial_pose_estimation)  // NO
   // (1) trigger initial pose estimation
   EXPECT_TRUE(trigger_node_client_->send_trigger_node(true));
 
+
+  auto rosbag_parser_node_ = std::make_shared<RosbagParserNode>(
+    "/home/melike/rosbags/urban_shared_data/only_localization_test/sliced_bag/sliced_bag_0.db3");
+
+
   // (2) publish LiDAR point cloud
-  const sensor_msgs::msg::PointCloud2 input_cloud = make_default_sensor_pcd();
-  RCLCPP_INFO_STREAM(node_->get_logger(), "sensor cloud size: " << input_cloud.width);
+  // const sensor_msgs::msg::PointCloud2 input_cloud = make_default_sensor_pcd();
+  const sensor_msgs::msg::PointCloud2 input_cloud = *rosbag_parser_node_->get_pc();
+  RCLCPP_INFO_STREAM(node_->get_logger(), "xx sensor cloud size: " << input_cloud.width);
   sensor_pcd_publisher_->publish_pcd(input_cloud);
 
   // (3) send initial pose
-  const geometry_msgs::msg::PoseWithCovarianceStamped initial_pose_msg =
-    make_pose(/* x = */ 100.0, /* y = */ 100.0);
+  // const geometry_msgs::msg::PoseWithCovarianceStamped initial_pose_msg =
+  //   make_pose(/* x = */ 100.0, /* y = */ 100.0);
+  const geometry_msgs::msg::PoseWithCovarianceStamped initial_pose_msg = *rosbag_parser_node_->get_pose_with_cov();
   const geometry_msgs::msg::Pose result_pose =
     initialpose_client_->send_initialpose(initial_pose_msg).pose.pose;
+
+  input_pose_with_covariance_publisher_->publish(*rosbag_parser_node_->get_pose_with_cov());
+
+  geometry_msgs::msg::PoseWithCovarianceStamped result_pose_with_cov;
+  result_pose_with_cov.pose.pose = result_pose;
+  result_pose_with_cov.header.frame_id= "map";
+  output_pose_with_covariance_publisher_->publish(result_pose_with_cov);
+
+  // ekf_pose_with_covariance_publisher_->publish(result_pose_with_cov);
+  // sensor_pcd_publisher_->publish_pcd(*rosbag_parser_node_->get_pc());
+
 
   //--------//
   // Assert //
@@ -62,9 +84,9 @@ TEST_F(TestNDTScanMatcher, standard_sequence_for_initial_pose_estimation)  // NO
   RCLCPP_INFO_STREAM(
     node_->get_logger(), std::fixed << "result_pose: " << result_pose.position.x << ", "
                                     << result_pose.position.y << ", " << result_pose.position.z);
-  EXPECT_NEAR(result_pose.position.x, 100.0, 2.0);
-  EXPECT_NEAR(result_pose.position.y, 100.0, 2.0);
-  EXPECT_NEAR(result_pose.position.z, 0.0, 2.0);
+  EXPECT_NEAR(result_pose.position.x, rosbag_parser_node_->get_pose_with_cov()->pose.pose.position.x, 2.0);
+  EXPECT_NEAR(result_pose.position.y, rosbag_parser_node_->get_pose_with_cov()->pose.pose.position.y, 2.0);
+  EXPECT_NEAR(result_pose.position.z, rosbag_parser_node_->get_pose_with_cov()->pose.pose.position.z, 2.0);
 
   rclcpp::shutdown();
   t1.join();
@@ -80,4 +102,4 @@ int main(int argc, char ** argv)
   return result;
 }
 
-#endif  // TEST_CASES__STANDARD_SEQUENCE_FOR_INITIAL_POSE_ESTIMATION_HPP_
+#endif  // TEST_CASES__COMPARE_GROUND_TRUTH_HPP_

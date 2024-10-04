@@ -21,7 +21,7 @@ else()
     add_compile_options(-march=native)
   endif()
 endif()
-
+find_package(rosbag2_cpp REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io registration)
 include_directories(${PCL_INCLUDE_DIRS})
 
@@ -52,6 +52,9 @@ if(BUILD_TESTING)
   )
   ament_auto_add_gtest(once_initialize_at_out_of_map_then_initialize_correctly
     test/test_cases/once_initialize_at_out_of_map_then_initialize_correctly.cpp
+  )
+  ament_auto_add_gtest(compare_ground_truth
+          test/test_cases/compare_ground_truth.cpp
   )
 endif()
 
