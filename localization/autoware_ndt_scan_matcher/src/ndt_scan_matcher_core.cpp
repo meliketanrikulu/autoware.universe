@@ -337,25 +337,25 @@ bool NDTScanMatcher::callback_sensor_points_main(
   }
 
   // check sensor_points_delay_time_sec
-  const double sensor_points_delay_time_sec =
-    (this->now() - sensor_points_msg_in_sensor_frame->header.stamp).seconds();
-  diagnostics_scan_points_->add_key_value(
-    "sensor_points_delay_time_sec", sensor_points_delay_time_sec);
-  if (sensor_points_delay_time_sec > param_.sensor_points.timeout_sec) {
-    std::stringstream message;
-    message << "sensor points is experiencing latency."
-            << "The delay time is " << sensor_points_delay_time_sec << "[sec] "
-            << "(the tolerance is " << param_.sensor_points.timeout_sec << "[sec]).";
-    diagnostics_scan_points_->update_level_and_message(
-      diagnostic_msgs::msg::DiagnosticStatus::WARN, message.str());
-
-    // If the delay time of the LiDAR topic exceeds the delay compensation time of ekf_localizer,
-    // even if further processing continues, the estimated result will be rejected by ekf_localizer.
-    // Therefore, it would be acceptable to exit the function here.
-    // However, for now, we will continue the processing as it is.
-
-    // return false;
-  }
+  // const double sensor_points_delay_time_sec =
+  //   (this->now() - sensor_points_msg_in_sensor_frame->header.stamp).seconds();
+  // diagnostics_scan_points_->add_key_value(
+  //   "sensor_points_delay_time_sec", sensor_points_delay_time_sec);
+  // if (sensor_points_delay_time_sec > param_.sensor_points.timeout_sec) {
+  //   std::stringstream message;
+  //   message << "sensor points is experiencing latency."
+  //           << "The delay time is " << sensor_points_delay_time_sec << "[sec] "
+  //           << "(the tolerance is " << param_.sensor_points.timeout_sec << "[sec]).";
+  //   diagnostics_scan_points_->update_level_and_message(
+  //     diagnostic_msgs::msg::DiagnosticStatus::WARN, message.str());
+  //
+  //   // If the delay time of the LiDAR topic exceeds the delay compensation time of ekf_localizer,
+  //   // even if further processing continues, the estimated result will be rejected by ekf_localizer.
+  //   // Therefore, it would be acceptable to exit the function here.
+  //   // However, for now, we will continue the processing as it is.
+  //
+  //   // return false;
+  // }
 
   // preprocess input pointcloud
   pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_points_in_sensor_frame(
